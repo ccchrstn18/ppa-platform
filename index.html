@@ -1069,9 +1069,10 @@ function rowToState(row){
 
 // ══ SAVE (debounced) ═══════════════════════════════════════════
 // Waits 1.5s after last change before writing — batches rapid edits
+let _realtimeUpdating = false; // flag to skip saves during realtime updates
 
 async function saveProjectToSupabase(id){
-  if(!_syncEnabled || !id) return;
+  if(!_syncEnabled || !id || _realtimeUpdating) return;
   clearTimeout(_pendingSaves[id]);
   _pendingSaves[id] = setTimeout(async () => {
     setSyncStatus('saving');
@@ -1294,7 +1295,8 @@ let _realtimeChannel = null;
 
 function startRealtime(){
   if(_realtimeChannel) return; // already subscribed
-  _realtimeChannel = supa.channel('db-changes')
+  _realtimeChannel = supa
+    .channel('db-changes', {config:{broadcast:{self:false}}})
     .on('postgres_changes', {event:'*', schema:'public', table:'projects'}, payload => {
       handleRealtimeChange('projects', payload);
     })
@@ -1304,9 +1306,10 @@ function startRealtime(){
     .on('postgres_changes', {event:'*', schema:'public', table:'project_state'}, payload => {
       handleRealtimeChange('project_state', payload);
     })
-    .subscribe(status => {
-      console.log('Realtime:', status);
+    .subscribe(async (status, err) => {
+      console.log('Realtime:', status, err||'');
       if(status === 'SUBSCRIBED') setSyncStatus('idle');
+      if(status === 'CHANNEL_ERROR') console.error('Realtime error:', err);
     });
 }
 
@@ -1321,6 +1324,9 @@ function handleRealtimeChange(table, payload){
   const {eventType, new: newRow, old: oldRow} = payload;
   const id = (newRow?.id || oldRow?.id);
   if(!id) return;
+
+  _realtimeUpdating = true; // prevent save loop
+  setTimeout(() => { _realtimeUpdating = false; }, 3000);
 
   // Ignore changes we made ourselves (already in memory)
   if(eventType === 'DELETE'){
