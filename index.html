@@ -1268,7 +1268,7 @@ supa.auth.onAuthStateChange(async(event,session)=>{
     document.getElementById('auth-screen').style.display='none';
     if(!_syncEnabled){
       console.log('[AUTH] calling loadFromSupabase...');
-      await new Promise(r => setTimeout(r, 500)); // small delay to ensure session token is ready
+      await new Promise(r => setTimeout(r, 2000)); // wait for client to fully re-establish session after refresh
       try{
         const loaded=await loadFromSupabase();
         console.log('[AUTH] loadFromSupabase done, loaded=', loaded);
