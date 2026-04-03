@@ -1089,7 +1089,7 @@ async function saveProjectToSupabase(id){
 async function loadFromSupabase(){
   setSyncStatus('saving'); // show loading state
   try {
-    const timeout = new Promise((_,r) => setTimeout(() => r(new Error('DB timeout after 10s')), 10000));
+    const timeout = new Promise((_,r) => setTimeout(() => r(new Error('DB timeout after 20s')), 20000));
     const queries = Promise.all([
       supa.from('projects').select('*'),
       supa.from('pipeline').select('*'),
@@ -1264,6 +1264,7 @@ supa.auth.onAuthStateChange(async(event,session)=>{
     document.getElementById('auth-screen').style.display='none';
     if(!_syncEnabled){
       console.log('[AUTH] calling loadFromSupabase...');
+      await new Promise(r => setTimeout(r, 500)); // small delay to ensure session token is ready
       try{
         const loaded=await loadFromSupabase();
         console.log('[AUTH] loadFromSupabase done, loaded=', loaded);
