@@ -457,7 +457,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
 
 /* ── Auth screen ─────────────────────────────────────────── */
 #auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;
-  display:flex;align-items:center;justify-content:center;flex-direction:column}
+  display:none;align-items:center;justify-content:center;flex-direction:column}
 #auth-screen .auth-card{background:var(--bg2);border:1px solid var(--border);
   border-radius:14px;padding:36px 40px;width:100%;max-width:400px;
   box-shadow:0 16px 48px rgba(0,0,0,.12)}
@@ -1089,11 +1089,13 @@ async function saveProjectToSupabase(id){
 async function loadFromSupabase(){
   setSyncStatus('saving'); // show loading state
   try {
-    const [{data:proj,error:e1}, {data:pipe,error:e2}, {data:state,error:e3}] = await Promise.all([
+    const timeout = new Promise((_,r) => setTimeout(() => r(new Error('DB timeout after 10s')), 10000));
+    const queries = Promise.all([
       supa.from('projects').select('*'),
       supa.from('pipeline').select('*'),
       supa.from('project_state').select('*'),
     ]);
+    const [{data:proj,error:e1}, {data:pipe,error:e2}, {data:state,error:e3}] = await Promise.race([queries, timeout]);
     if(e1||e2||e3) throw new Error((e1||e2||e3).message);
 
     if(!proj.length) {
@@ -1251,8 +1253,10 @@ async function signOut(){
   _syncEnabled=false; setSyncStatus('idle');
 }
 
+let _initialSessionFired = false;
 supa.auth.onAuthStateChange(async(event,session)=>{
   console.log('[AUTH]', event, session?.user?.email||'no user');
+  if(event==='INITIAL_SESSION') _initialSessionFired = true;
   if(session?.user){
     currentUser=session.user;
     try{currentProfile=await loadProfile(session.user);}catch(e){currentProfile=null;}
@@ -1271,8 +1275,10 @@ supa.auth.onAuthStateChange(async(event,session)=>{
     }
     setTimeout(bindKpiTips,300);
   } else {
-    console.log('[AUTH] signed out — showing auth screen');
-    document.getElementById('auth-screen').style.display='flex';
+    if(_initialSessionFired){
+      console.log('[AUTH] signed out — showing auth screen');
+      document.getElementById('auth-screen').style.display='flex';
+    }
     _syncEnabled=false;
   }
 });
