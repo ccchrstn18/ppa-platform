@@ -1095,6 +1095,7 @@ async function saveProjectToSupabase(id){
 
 // ══ LOAD ALL FROM DB ══════════════════════════════════════════
 async function loadFromSupabase(){
+  _realtimeUpdating = false; // ensure clean state on load
   setSyncStatus('saving'); // show loading state
   try {
 
@@ -1267,16 +1268,27 @@ let _initialSessionFired = false;
 supa.auth.onAuthStateChange(async(event,session)=>{
   if(event==='INITIAL_SESSION') _initialSessionFired = true;
 
+  _realtimeUpdating = false; // reset on every auth event
   const user = session?.user;
   if(user){
     currentUser = user;
     try{currentProfile=await loadProfile(user);}catch(e){currentProfile=null;}
     updateUserBadge(currentProfile,user);
     document.getElementById('auth-screen').style.display='none';
+    // Set default currency based on user
+    const _aedUsers=['T. Ryan','J. Fox','Tom Ryan','Jeff Fox'];
+    const _uname=currentProfile?.name||'';
+    const _ulmgr=currentProfile?.initials||'';
+    if(_aedUsers.some(n=>_uname.includes(n.split(' ')[1])||_uname===n)){
+      curCode='AED';
+      document.querySelectorAll('.cbtn').forEach(b=>{
+        b.classList.toggle('on',b.textContent==='AED');
+      });
+    }
     try{
       const loaded=await loadFromSupabase();
       if(!loaded){initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;}
-      startRealtime();
+      // startRealtime(); // temporarily disabled — causes client deadlock
     }catch(e){
       console.error('[AUTH] Load error:',e);
       initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;
@@ -1293,10 +1305,20 @@ supa.auth.onAuthStateChange(async(event,session)=>{
 // ══ REALTIME SYNC ═════════════════════════════════════════
 let _realtimeChannel = null;
 
-function startRealtime(){
+async function startRealtime(){
   if(_realtimeChannel) return; // already subscribed
+  // Get current access token for authenticated realtime
+  let accessToken = null;
+  try {
+    const stored = localStorage.getItem('sb-heoempnplwoaupfmidoo-auth-token');
+    if(stored) accessToken = JSON.parse(stored)?.access_token;
+  } catch(e) {}
+  if(!accessToken && currentUser) {
+    // fallback — use anon key, realtime will still work for authenticated users
+    accessToken = null;
+  }
   _realtimeChannel = supa
-    .channel('db-changes', {config:{broadcast:{self:false}}})
+    .channel('db-changes', {config:{broadcast:{self:false}, presence:{key:''}}})
     .on('postgres_changes', {event:'*', schema:'public', table:'projects'}, payload => {
       handleRealtimeChange('projects', payload);
     })
@@ -1326,7 +1348,7 @@ function handleRealtimeChange(table, payload){
   if(!id) return;
 
   _realtimeUpdating = true; // prevent save loop
-  setTimeout(() => { _realtimeUpdating = false; }, 3000);
+  setTimeout(() => { _realtimeUpdating = false; }, 1000);
 
   // Ignore changes we made ourselves (already in memory)
   if(eventType === 'DELETE'){
@@ -2975,274 +2997,320 @@ function initMondayData(){
 
 function renderSalesDashboard(){
   const el=document.getElementById('dash-content');if(!el)return;
-  window._dashTips = {}; // initialise before any writes
-  const ids=Object.keys(PROJECTS);
-  const ME_TARGET=10000000,EU_TARGET=8000000;
+  window._dashTips={};
 
-  // Compute buckets per region
-  const buckets={ME:{Secured:0,Hot:0,Potential:0,OnHold:0,Lost:0,count:{Secured:0,Hot:0,Potential:0,OnHold:0,Lost:0}},
-                 EU:{Secured:0,Hot:0,Potential:0,OnHold:0,Lost:0,count:{Secured:0,Hot:0,Potential:0,OnHold:0,Lost:0}},
-                 ALL:{Secured:0,Hot:0,Potential:0,OnHold:0,Lost:0,count:{Secured:0,Hot:0,Potential:0,OnHold:0,Lost:0}}};
-  const stageCount={};
-  ids.forEach(id=>{
-    const p=PROJECTS[id];const pipe=getPipe(id);
-    const stage=pipe.stage;
-    stageCount[stage]=(stageCount[stage]||0)+1;
-    const bucket=getDashboardBucket(stage);
-    const reg=p.region||'';
-    const isMe=reg.includes('Middle East');
-    const isEu=reg.includes('Europe');
-    const isBoth=isMe&&isEu;
-    let feeGBP=0;
-    try{const t=getTotalProjectFeeGBP(id);if(t&&t>0)feeGBP=t;}catch(e){}
-    if(!feeGBP&&p.efee&&!isNaN(p.efee))feeGBP=parseFloat(p.efee)*(FX.GBP/FX[p.feecur||'GBP']);
-    const prob=getStageProbability(stage);
-    const weighted=feeGBP*prob;
-    const val=bucket==='Secured'?feeGBP:weighted;
-    buckets.ALL[bucket]+=val;buckets.ALL.count[bucket]++;
-    // "Both" regions → split 50/50; single region → full value
-    if(isMe){buckets.ME[bucket]+=isBoth?val*0.5:val;buckets.ME.count[bucket]++;}
-    if(isEu){buckets.EU[bucket]+=isBoth?val*0.5:val;buckets.EU.count[bucket]++;}
+  // ── LM CONFIG ──────────────────────────────────────────────
+  const LM_CONFIG={
+    'T. Ryan':  {full:'Tom Ryan',   cur:'AED', target:15000000/3.67}, // AED→GBP
+    'A. Tizard':{full:'Arthur Tizard',cur:'GBP',target:8000000},
+    'D. Watts': {full:'Derek Watts', cur:'GBP', target:6000000},
+    'J. Phillips':{full:'Jon Phillips',cur:'GBP',target:10000000},
+    'B. Whitfield':{full:'Ben Whitfield',cur:'GBP',target:3000000},
+    'J. Fox':   {full:'Jeff Fox',   cur:'AED', target:5000000/3.67},
+  };
+
+  // ── DATE FILTER STATE ──────────────────────────────────────
+  if(!window._dashDateFilter) window._dashDateFilter='all';
+  if(!window._dashDateFrom)   window._dashDateFrom=null;
+  if(!window._dashDateTo)     window._dashDateTo=null;
+
+  // ── LM TARGETS (editable by Jon) ──────────────────────────
+  if(!window._lmTargets){
+    window._lmTargets={};
+    Object.keys(LM_CONFIG).forEach(k=>{ window._lmTargets[k]=LM_CONFIG[k].target; });
+  }
+
+  // ── DATE RANGE HELPERS ─────────────────────────────────────
+  function getDateRange(filter){
+    const now=new Date();
+    const y=now.getFullYear(),m=now.getMonth();
+    const qStart=new Date(y,Math.floor(m/3)*3,1);
+    switch(filter){
+      case'this_week':{ const d=new Date(now);d.setDate(d.getDate()-d.getDay());return[d,now]; }
+      case'this_month': return[new Date(y,m,1),now];
+      case'this_quarter': return[qStart,now];
+      case'this_year': return[new Date(y,0,1),now];
+      case'last_month': return[new Date(y,m-1,1),new Date(y,m,0)];
+      case'last_quarter':{ const qs=new Date(qStart);qs.setMonth(qs.getMonth()-3);const qe=new Date(qStart);qe.setDate(qe.getDate()-1);return[qs,qe]; }
+      case'last_year': return[new Date(y-1,0,1),new Date(y-1,11,31)];
+      case'custom': return[window._dashDateFrom,window._dashDateTo];
+      default: return[null,null]; // all time
+    }
+  }
+
+  function inRange(id){
+    if(window._dashDateFilter==='all')return true;
+    const [from,to]=getDateRange(window._dashDateFilter);
+    if(!from)return true;
+    const p=PROJECTS[id];
+    const d=new Date(p.created||p.createdAt||Date.now());
+    return d>=from&&d<=to;
+  }
+
+  // ── COMPUTE PER-LM STATS ───────────────────────────────────
+  const lmStats={};
+  Object.keys(LM_CONFIG).forEach(k=>{
+    lmStats[k]={leads:0,opps:0,proposals:0,live:0,closed:0,
+      weightedForecast:0,secured:0,totalFee:0,projects:[]};
   });
 
-  const mePipe=buckets.ME.Secured+buckets.ME.Hot+buckets.ME.Potential;
-  const euPipe=buckets.EU.Secured+buckets.EU.Hot+buckets.EU.Potential;
-  const allSecured=buckets.ALL.Secured,allHot=buckets.ALL.Hot,allPotential=buckets.ALL.Potential;
-  const allTotal=allSecured+allHot+allPotential;
-  const GRAND_TARGET=ME_TARGET+EU_TARGET;
+  const ids=Object.keys(PROJECTS).filter(inRange);
+  ids.forEach(id=>{
+    const p=PROJECTS[id];const pipe=getPipe(id);
+    const lm=p.lmgr||'';
+    if(!lmStats[lm])return;
+    const s=lmStats[lm];
+    s.projects.push(id);
+    const stage=pipe.stage||'New Lead';
+    const prob=getStageProbability(stage);
+    let feeGBP=0;
+    try{feeGBP=getTotalProjectFeeGBP(id)||0;}catch(e){}
+    if(!feeGBP&&p.efee&&!isNaN(p.efee))feeGBP=parseFloat(p.efee)*(FX.GBP/FX[p.feecur||'GBP']);
+    s.totalFee+=feeGBP;
+    s.weightedForecast+=feeGBP*prob;
+    if(stage==='Live'){s.live++;s.secured+=feeGBP;}
+    else if(stage==='Closed Lead'||stage==='Lost')s.closed++;
+    else if(['Proposal','Negotiation'].includes(stage))s.proposals++;
+    else if(['Qualified','In Assessment'].includes(stage))s.opps++;
+    else s.leads++;
+  });
 
-  function fm2(v){const d=cv(v);if(d>=1e6)return curCode+' '+(d/1e6).toFixed(2)+'M';if(d>=1e3)return curCode+' '+Math.round(d/1e3)+'K';return curCode+' '+Math.round(d).toLocaleString();}
-  function pct(v,t){return Math.min(Math.round(v/t*100),100);}
+  // ── TOTALS ─────────────────────────────────────────────────
+  let totalWeighted=0,totalSecured=0,totalTarget=0,totalProjects=ids.length;
+  Object.keys(LM_CONFIG).forEach(k=>{
+    totalWeighted+=lmStats[k].weightedForecast;
+    totalSecured+=lmStats[k].secured;
+    totalTarget+=window._lmTargets[k]||0;
+  });
 
-  // Gauge SVG — semicircle speedometer
-  function gaugeHTML(id,val,target,color){
-    const p=Math.min(val/target,1);
-    const R=70,cx=90,cy=85;
-    const toXY=(angle,r)=>({x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)});
-    function arc(r,a1,a2,color2,w){
-      const s=toXY(a1,r),e=toXY(a2,r);
-      const large=a2-a1>Math.PI?1:0;
-      return`<path d="M${s.x.toFixed(1)},${s.y.toFixed(1)} A${r},${r} 0 ${large},1 ${e.x.toFixed(1)},${e.y.toFixed(1)}" fill="none" stroke="${color2}" stroke-width="${w}" stroke-linecap="round"/>`;
+  // ── FORMAT HELPERS ─────────────────────────────────────────
+  const isJon=currentProfile?.name==='Jon Phillips'||currentUser?.email?.includes('phillips');
+  function fmGBP(v,lmKey){
+    const cfg=LM_CONFIG[lmKey]||{cur:'GBP'};
+    const fx=FX[cfg.cur]||1;
+    const val=v*fx;
+    if(val>=1e6)return cfg.cur+' '+(val/1e6).toFixed(1)+'M';
+    if(val>=1e3)return cfg.cur+' '+Math.round(val/1e3)+'K';
+    return cfg.cur+' '+Math.round(val);
+  }
+  function fmGlobal(v){
+    if(v>=1e6)return 'GBP '+(v/1e6).toFixed(2)+'M';
+    if(v>=1e3)return 'GBP '+Math.round(v/1e3)+'K';
+    return 'GBP '+Math.round(v);
+  }
+  function pct(a,b){return b>0?Math.min(100,Math.round(a/b*100)):0;}
+
+  // ── SVG DIAL ───────────────────────────────────────────────
+  function dial(actual,target,color){
+    const r=36,cx=44,cy=44,stroke=7;
+    const circumference=Math.PI*r; // half circle
+    const p=Math.min(1,target>0?actual/target:0);
+    const filled=p*circumference;
+    const angle=180*p;
+    // Convert to arc path
+    function polarToCartesian(cx,cy,r,angleDeg){
+      const a=(angleDeg-180)*Math.PI/180;
+      return{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};
     }
-    const a1=Math.PI,a2=Math.PI+Math.PI*p;
-    const needle_a=a1+Math.PI*p;
-    const nx=cx+R*0.85*Math.cos(needle_a),ny=cy+R*0.85*Math.sin(needle_a);
-    return`<svg id="${id}" width="180" height="100" viewBox="0 0 180 100">
-      ${arc(R,Math.PI,0,'#e8e7e0',14)}
-      ${p>0?arc(R,Math.PI,a2,color,14):''}
-      <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#555" stroke-width="2.5" stroke-linecap="round"/>
-      <circle cx="${cx}" cy="${cy}" r="4" fill="#555"/>
-      <text x="${cx}" y="${cy-18}" text-anchor="middle" font-size="13" font-weight="500" fill="currentColor">${pct(val,target)}%</text>
+    const start=polarToCartesian(cx,cy,r,0);
+    const end=polarToCartesian(cx,cy,r,180*p);
+    const largeArc=p>0.5?1:0;
+    const pathFill=p>0?`M ${polarToCartesian(cx,cy,r,0).x} ${polarToCartesian(cx,cy,r,0).y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`:'';
+    return `<svg width="88" height="52" viewBox="0 0 88 52">
+      <path d="M 8 44 A 36 36 0 0 1 80 44" fill="none" stroke="var(--border2)" stroke-width="${stroke}" stroke-linecap="round"/>
+      ${p>0?`<path d="M 8 44 A 36 36 0 ${p>0.5?1:0} 1 ${polarToCartesian(cx,cy,r,180*p).x} ${polarToCartesian(cx,cy,r,180*p).y}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round"/>`:''}
+      <text x="44" y="42" text-anchor="middle" font-size="11" font-weight="700" font-family="var(--fm)" fill="${color}">${Math.round(p*100)}%</text>
     </svg>`;
   }
 
-  // Bar for forecast stack
-  function barRow(label,val,total,color,count){
-    const w=total>0?Math.round(val/total*100):0;
-    return`<div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-        <span style="color:var(--text2)">${label}</span>
-        <span style="font-weight:600;font-family:var(--fm);color:var(--text)">${fm2(val)}<span style="font-weight:400;color:var(--text3);margin-left:6px">${count} projects</span></span>
+  // ── DATE FILTER UI ─────────────────────────────────────────
+  const filterOpts=[
+    ['all','All time'],['this_week','This week'],['this_month','This month'],
+    ['this_quarter','This quarter'],['this_year','This year'],
+    ['last_month','Last month'],['last_quarter','Last quarter'],['last_year','Last year'],
+    ['custom','Custom range'],
+  ];
+  const filterHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+      <span style="font-size:10px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase">Date scope</span>
+      <div style="display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        ${filterOpts.map(([v,l])=>`<button onclick="window._dashDateFilter='${v}';renderSalesDashboard()" 
+          style="padding:4px 10px;font-size:11px;font-family:var(--fm);border:none;cursor:pointer;white-space:nowrap;
+          background:${window._dashDateFilter===v?'var(--accent)':'transparent'};
+          color:${window._dashDateFilter===v?'#1a1a1a':'var(--text3)'};
+          font-weight:${window._dashDateFilter===v?'700':'400'}">${l}</button>`).join('')}
       </div>
-      <div style="height:7px;background:var(--bg3);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${w}%;background:${color};border-radius:4px;transition:width .4s"></div>
-      </div>
+      ${window._dashDateFilter==='custom'?`
+        <input type="date" id="dash-from" value="${window._dashDateFrom?window._dashDateFrom.toISOString().slice(0,10):''}"
+          onchange="window._dashDateFrom=this.value?new Date(this.value):null;renderSalesDashboard()"
+          style="padding:4px 8px;font-size:11px;font-family:var(--fm);background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text)"/>
+        <span style="font-size:11px;color:var(--text3)">to</span>
+        <input type="date" id="dash-to" value="${window._dashDateTo?window._dashDateTo.toISOString().slice(0,10):''}"
+          onchange="window._dashDateTo=this.value?new Date(this.value):null;renderSalesDashboard()"
+          style="padding:4px 8px;font-size:11px;font-family:var(--fm);background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--text)"/>
+      `:''}
+      <span style="font-size:11px;color:var(--text3);font-family:var(--fm);margin-left:4px">${totalProjects} projects</span>
     </div>`;
-  }
 
-  // Stage count bars
-  const stageOrder=['New Lead','Att. to contact','Contacted','Information Pending','Qualified','In Assessment','Proposal','Negotiation','Live','On Hold','Closed Lead'];
-  const stageColors={'New Lead':'#b4b2a9','Att. to contact':'#f5a623','Contacted':'#4da6ff','Information Pending':'#f5a623','Qualified':'#8dc63f','In Assessment':'#8dc63f','Proposal':'#9b8df8','Negotiation':'#7F77DD','Live':'#1db8a0','On Hold':'#f5a623','Closed Lead':'#f05a4f'};
-  const maxCount=Math.max(...stageOrder.map(s=>stageCount[s]||0));
+  // ── TEAM SUMMARY BAR ───────────────────────────────────────
+  const teamPct=pct(totalWeighted,totalTarget);
+  const teamColor=teamPct>=100?'var(--accent)':teamPct>=70?'var(--amber)':'var(--coral)';
+  const summaryHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${[
+        ['Total Pipeline',fmGlobal(totalWeighted+totalSecured),'weighted forecast across all LMs'],
+        ['Secured Revenue',fmGlobal(totalSecured),'live projects in delivery'],
+        ['Team Target',fmGlobal(totalTarget),'FY2026 combined target'],
+        ['Team Achievement',teamPct+'%','weighted forecast vs target'],
+      ].map(([l,v,s])=>`
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px">
+          <div style="font-size:9.5px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${l}</div>
+          <div style="font-size:20px;font-weight:700;font-family:var(--fm);color:var(--text)">${v}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">${s}</div>
+        </div>`).join('')}
+    </div>`;
 
-  // Pre-compute per-stage fee totals for tooltips
-  const stageFees={};
-  Object.keys(PROJECTS).forEach(id=>{
-    const s=getPipe(id).stage;
-    stageFees[s]=(stageFees[s]||0)+getProjectFeeGBP(id);
-  });
-  const stageRows=stageOrder.map(s=>{
-    const cnt=stageCount[s]||0;if(!cnt)return'';
-    const w=maxCount>0?Math.round(cnt/maxCount*92):0;
-    const fee=stageFees[s]||0;
-    const prob=getStageProbability(s)||0;
-    const tipKey='stage-'+s.replace(/[^a-z]/gi,'_');
-    window._dashTips[tipKey]=
-      '<div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">'+s+'</div>'+
-      '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11px"><span style="color:var(--text2)">Projects</span><span style="font-weight:600;font-family:var(--fm)">'+cnt+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--border);font-size:11px"><span style="color:var(--text2)">Est. fee</span><span style="font-weight:600;font-family:var(--fm)">'+fm2(fee)+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--border);font-size:11px"><span style="color:var(--text2)">Probability</span><span style="font-weight:600;font-family:var(--fm)">'+Math.round(prob*100)+'%</span></div>'+
-      '<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--border);font-size:11px"><span style="color:var(--text2)">Weighted</span><span style="font-weight:600;font-family:var(--fm);color:var(--accent2)">'+fm2(fee*prob)+'</span></div>';
-    return'<div class="dash-tip-card" data-tipkey="'+tipKey+'" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:default">'+
-      '<div style="width:110px;font-size:11px;color:var(--text2);text-align:right;flex-shrink:0">'+s+'</div>'+
-      '<div style="flex:1;height:18px;background:var(--bg3);border-radius:3px;overflow:hidden">'+
-        '<div style="height:100%;width:'+w+'%;background:'+(stageColors[s]||'#888')+';border-radius:3px;display:flex;align-items:center;padding-left:6px">'+
-          '<span style="font-size:10px;font-family:var(--fm);font-weight:600;color:#fff">'+cnt+'</span>'+
-        '</div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
+  // ── LM CARDS ───────────────────────────────────────────────
+  const lmCardsHTML=`
+    <div style="font-size:9.5px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Lead Manager Performance</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+    ${Object.entries(LM_CONFIG).map(([key,cfg])=>{
+      const s=lmStats[key];
+      const target=window._lmTargets[key]||cfg.target;
+      const p=pct(s.weightedForecast,target);
+      const color=p>=100?'var(--accent)':p>=70?'var(--amber)':'var(--coral)';
+      const fxRate=FX[cfg.cur]||1;
+      const wf=s.weightedForecast*fxRate;
+      const tgt=target*fxRate;
+      const wfFmt=wf>=1e6?cfg.cur+' '+(wf/1e6).toFixed(1)+'M':cfg.cur+' '+Math.round(wf/1e3)+'K';
+      const tgtFmt=tgt>=1e6?cfg.cur+' '+(tgt/1e6).toFixed(1)+'M':cfg.cur+' '+Math.round(tgt/1e3)+'K';
+      const totalProj=s.projects.length;
+      return `
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text)">${cfg.full}</div>
+              <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:2px">${totalProj} project${totalProj!==1?'s':''} · ${cfg.cur}</div>
+            </div>
+            <div style="text-align:center">
+              ${dial(s.weightedForecast,target,color)}
+              <div style="font-size:9px;font-family:var(--fm);color:var(--text3);margin-top:-4px">vs target</div>
+            </div>
+          </div>
+          
+          <!-- Forecast bar -->
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--fm);margin-bottom:4px">
+              <span style="color:var(--text2)">Weighted forecast</span>
+              <span style="color:${color};font-weight:600">${wfFmt}</span>
+            </div>
+            <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100,p)}%;background:${color};border-radius:2px;transition:width .4s"></div>
+            </div>
+            <div style="font-size:9.5px;font-family:var(--fm);color:var(--text3);margin-top:3px">Target: ${tgtFmt}</div>
+          </div>
 
-  // Manager leaderboard
-  const mgrFees={};
+          <!-- Funnel -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:10px">
+            ${[
+              ['Leads',s.leads,'var(--text3)'],
+              ['Opps',s.opps,'var(--blue)'],
+              ['Props',s.proposals,'var(--purple)'],
+              ['Live',s.live,'var(--accent)'],
+              ['Closed',s.closed,'var(--coral)'],
+            ].map(([l,n,c])=>`
+              <div style="text-align:center;background:var(--bg3);border-radius:5px;padding:6px 4px">
+                <div style="font-size:14px;font-weight:700;font-family:var(--fm);color:${c}">${n}</div>
+                <div style="font-size:9px;color:var(--text3);margin-top:1px">${l}</div>
+              </div>`).join('')}
+          </div>
+
+          <!-- Secured -->
+          <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)">
+            <span style="font-size:10px;color:var(--text3);font-family:var(--fm)">Secured</span>
+            <span style="font-size:10px;font-weight:600;font-family:var(--fm);color:var(--teal)">${fmGBP(s.secured,key)}</span>
+          </div>
+
+          ${isJon?`
+          <!-- Target edit (Jon only) -->
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px">
+            <span style="font-size:9.5px;font-family:var(--fm);color:var(--text3)">Target (${cfg.cur})</span>
+            <input type="number" value="${Math.round(tgt/1000)}" 
+              onchange="window._lmTargets['${key}']=this.value*1000/${fxRate};renderSalesDashboard()"
+              style="flex:1;padding:3px 6px;font-size:11px;font-family:var(--fm);background:var(--inp);border:1px solid var(--border2);border-radius:4px;color:var(--text);min-width:0"
+              placeholder="000s"/>
+            <span style="font-size:9.5px;font-family:var(--fm);color:var(--text3)">K</span>
+          </div>`:''}
+        </div>`;
+    }).join('')}
+    </div>`;
+
+  // ── STAGE PIPELINE CHART ────────────────────────────────────
+  const stageOrder=['New Lead','Att. to contact','Contacted','Information Pending','Qualified','In Assessment','Proposal','Negotiation','Live','Closed Lead'];
+  const stageFees={};const stageCount={};
   ids.forEach(id=>{
     const p=PROJECTS[id];const pipe=getPipe(id);
-    if(getDashboardBucket(pipe.stage)==='Lost')return;
-    const mgr=p.lmgr||p.bmgr||'Unknown';
-    let fee=0;try{const t=getTotalProjectFeeGBP(id);if(t&&t>0)fee=t;}catch(e){}
-    if(!fee&&p.efee&&!isNaN(p.efee))fee=parseFloat(p.efee)*(FX.GBP/FX[p.feecur||'GBP']);
-    mgrFees[mgr]=(mgrFees[mgr]||0)+fee;
+    const stage=pipe.stage||'New Lead';
+    stageCount[stage]=(stageCount[stage]||0)+1;
+    let feeGBP=0;
+    try{feeGBP=getTotalProjectFeeGBP(id)||0;}catch(e){}
+    if(!feeGBP&&p.efee&&!isNaN(p.efee))feeGBP=parseFloat(p.efee)*(FX.GBP/FX[p.feecur||'GBP']);
+    stageFees[stage]=(stageFees[stage]||0)+feeGBP;
   });
-  const mgrSorted=Object.entries(mgrFees).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const maxFee_=mgrSorted.length?mgrSorted[0][1]:0;
-  // Per-manager stage breakdown for tooltips
-  const mgrStages={};
-  Object.keys(PROJECTS).forEach(id=>{
-    const p2=PROJECTS[id];const pipe2=getPipe(id);
-    if(getDashboardBucket(pipe2.stage)==='Lost')return;
-    const mgr2=p2.lmgr||p2.bmgr||'Unknown';
-    if(!mgrStages[mgr2])mgrStages[mgr2]={};
-    const s2=pipe2.stage;
-    if(!mgrStages[mgr2][s2])mgrStages[mgr2][s2]={count:0,fee:0};
-    mgrStages[mgr2][s2].count++;
-    mgrStages[mgr2][s2].fee+=getProjectFeeGBP(id);
-  });
-  const mgrRows=mgrSorted.map(([mgr,fee],i)=>{
-    const w=maxFee_>0?Math.round(fee/maxFee_*90):0;
-    const medals=['🥇','🥈','🥉'];
-    const tipKey='mgr-'+mgr.replace(/[^a-z]/gi,'_');
-    const stBreakdown=Object.entries(mgrStages[mgr]||{}).sort((a,b)=>b[1].fee-a[1].fee).slice(0,5)
-      .map(([s,d])=>'<div style="display:flex;justify-content:space-between;padding:2px 0;border-top:1px solid var(--border);font-size:11px"><span style="color:var(--text2)">'+s+' ('+d.count+')</span><span style="font-weight:600;font-family:var(--fm)">'+fm2(d.fee)+'</span></div>').join('');
-    window._dashTips[tipKey]=
-      '<div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">'+mgr+'</div>'+
-      '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11px"><span style="color:var(--text2)">Total pipeline</span><span style="font-weight:600;font-family:var(--fm);color:var(--accent2)">'+fm2(fee)+'</span></div>'+
-      stBreakdown;
-    return'<div class="dash-tip-card" data-tipkey="'+tipKey+'" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:default">'+
-      '<div style="width:10px;font-size:11px;color:var(--text3);text-align:center">'+(medals[i]||'')+'</div>'+
-      '<div style="width:72px;font-size:11px;color:var(--text2);flex-shrink:0">'+mgr+'</div>'+
-      '<div style="flex:1;height:16px;background:var(--bg3);border-radius:3px;overflow:hidden">'+
-        '<div style="height:100%;width:'+w+'%;background:var(--accent2);border-radius:3px"></div>'+
-      '</div>'+
-      '<div style="font-size:11px;font-family:var(--fm);font-weight:600;color:var(--text);width:56px;text-align:right">'+fm2(fee)+'</div>'+
-    '</div>';
-  }).join('');
+  const maxCount=Math.max(...stageOrder.map(s=>stageCount[s]||0));
+  const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)',
+    'Information Pending':'var(--blue)','Qualified':'var(--accent2)','In Assessment':'var(--accent2)',
+    'Proposal':'var(--purple)','Negotiation':'var(--purple)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
 
-  el.innerHTML=`
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
-    ${(()=>{
-      const _st=Object.keys(PROJECTS).reduce((acc,id)=>{
-        const s=getPipe(id).stage;const p=PROJECTS[id];
-        let fee=0;try{const t=getTotalProjectFeeGBP(id);if(t&&t>0)fee=t;}catch(e){}
-        if(!fee&&p.efee&&!isNaN(p.efee))fee=parseFloat(p.efee)*(FX.GBP/FX[p.feecur||'GBP']);
-        if(!acc[s])acc[s]={count:0,fee:0};acc[s].count++;acc[s].fee+=fee;return acc;
-      },{});
-      const _hd=t=>'<div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">'+t+'</div>';
-      const _tr=(dot,label,val,sub)=>'<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid var(--border)"><span style="width:8px;height:8px;border-radius:2px;background:'+dot+';flex-shrink:0"></span><span style="flex:1;font-size:11px;color:var(--text2)">'+label+'</span><span style="font-size:11px;font-weight:600;font-family:var(--fm);white-space:nowrap">'+val+(sub?' <span style=\'font-size:9px;color:var(--text3)\'>'+sub+'</span>':'')+'</span></div>';
-      const _note=t=>'<div style="font-size:9.5px;color:var(--text3);margin-top:8px;padding-top:6px;border-top:1px solid var(--border);line-height:1.5">'+t+'</div>';
-      window._dashTips={
-        sec:_hd('Secured revenue')+_tr('#1db8a0','Live ('+(_st['Live']?.count||0)+')',fm2(_st['Live']?.fee||0))+_note('Projects in delivery · 100% probability'),
-        hot:_hd('Hot / Tendered')+_tr('#9b8df8','Proposal ('+(_st['Proposal']?.count||0)+')',fm2((_st['Proposal']?.fee||0)*0.5),'50%')+_tr('#7F77DD','Negotiation ('+(_st['Negotiation']?.count||0)+')',fm2((_st['Negotiation']?.fee||0)*0.75),'75%')+_note('Weighted by stage probability'),
-        pot:_hd('Potential weighted')+[['New Lead','#b4b2a9',0.10],['Contacted','#4da6ff',0.20],['Qualified','#8dc63f',0.30],['In Assessment','#6db32f',0.30],['On Hold','#f5a623',0.10]].filter(([s])=>_st[s]?.count).map(([s,col,p])=>_tr(col,s+' ('+_st[s].count+')',fm2(_st[s].fee*p),(p*100)+'%')).join('')+_note('Early-stage pipeline · indicative only'),
-        tot:_hd('Total forecast')+_tr('#1db8a0','Secured',fm2(allSecured))+_tr('#9b8df8','Hot / Tendered',fm2(allHot))+_tr('#f5a623','Potential',fm2(allPotential))+'<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;font-weight:700;font-family:var(--fm);border-top:2px solid var(--border);margin-top:2px"><span>Total</span><span>'+fm2(allTotal)+'</span></div>'+_note('Target: '+fm2(GRAND_TARGET)+' · '+Math.round(allTotal/GRAND_TARGET*100)+'% of FY2026 goal'),
-      };
-      return [
-        ['Secured revenue','#1db8a0',allSecured,buckets.ALL.count.Secured+' live projects','sec'],
-        ['Hot / tendered','#9b8df8',allHot,buckets.ALL.count.Hot+' proposals out','hot'],
-        ['Potential weighted','#f5a623',allPotential,buckets.ALL.count.Potential+' in pipeline','pot'],
-        ['Total forecast','var(--text)',allTotal,'vs '+fm2(GRAND_TARGET)+' target','tot'],
-      ].map(([l,col,v,sub,key])=>'<div class="dash-tip-card" data-tipkey="'+key+'" style="background:var(--bg3);border-radius:8px;padding:14px 16px;cursor:default"><div style="font-size:10px;font-family:var(--fm);color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">'+l+'</div><div style="font-size:22px;font-weight:500;color:'+col+';font-family:var(--fm)">'+fm2(v)+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px">'+sub+'</div></div>').join('');
-    })()}
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm)">Middle East — pipeline vs target</div>
-      <div style="display:flex;gap:20px;align-items:flex-end">
-        <div style="flex:1">
-          <div style="display:flex;justify-content:center">${gaugeHTML('g-me',mePipe,ME_TARGET,'#1D9E75')}</div>
-          <div style="text-align:center;margin-top:4px">
-            <div style="font-size:20px;font-weight:500;color:var(--text);font-family:var(--fm)">${fm2(mePipe)}</div>
-            <div style="font-size:11px;color:var(--text3)">of ${fm2(ME_TARGET)} target · ${pct(mePipe,ME_TARGET)}%</div>
+  const stageHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <div style="font-size:9.5px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Pipeline by Stage</div>
+        ${stageOrder.filter(s=>stageCount[s]).map(s=>{
+          const cnt=stageCount[s]||0;
+          const w=maxCount>0?Math.round(cnt/maxCount*90):0;
+          return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+            <div style="width:120px;font-size:11px;color:var(--text2);text-align:right;flex-shrink:0">${s}</div>
+            <div style="flex:1;height:18px;background:var(--bg3);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${w}%;background:${stageColors[s]||'#888'};border-radius:3px;display:flex;align-items:center;padding-left:6px">
+                <span style="font-size:10px;font-family:var(--fm);font-weight:600;color:#fff">${cnt}</span>
+              </div>
+            </div>
+            <div style="width:80px;font-size:10px;font-family:var(--fm);color:var(--text3);text-align:right">${fmGlobal(stageFees[s]||0)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <div style="font-size:9.5px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Forecast Summary</div>
+        ${[
+          ['Secured (Live)','var(--teal)',totalSecured,'100% probability'],
+          ['Hot / Tendered','var(--purple)',(lmStats['T. Ryan'].weightedForecast+lmStats['A. Tizard'].weightedForecast+lmStats['D. Watts'].weightedForecast+lmStats['J. Phillips'].weightedForecast+lmStats['B. Whitfield'].weightedForecast+lmStats['J. Fox'].weightedForecast)-totalSecured,'Proposal + Negotiation weighted'],
+          ['Total Weighted','var(--text)',totalWeighted,'All stages weighted'],
+          ['Team Target','var(--border2)',totalTarget,'FY2026'],
+        ].map(([l,c,v,s])=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:8px;height:8px;border-radius:2px;background:${c};display:inline-block;flex-shrink:0"></span>
+              <div>
+                <div style="font-size:12px;color:var(--text)">${l}</div>
+                <div style="font-size:9.5px;color:var(--text3);font-family:var(--fm)">${s}</div>
+              </div>
+            </div>
+            <span style="font-size:13px;font-weight:600;font-family:var(--fm);color:var(--text)">${fmGlobal(v)}</span>
+          </div>`).join('')}
+        <div style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;font-family:var(--fm);margin-bottom:4px">
+            <span style="color:var(--text2)">Team achievement</span>
+            <span style="color:${teamColor};font-weight:700">${teamPct}%</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100,teamPct)}%;background:${teamColor};border-radius:3px"></div>
           </div>
         </div>
-        <div style="flex:1;padding-bottom:8px">
-          ${barRow('Secured',buckets.ME.Secured,mePipe,'#1db8a0',buckets.ME.count.Secured)}
-          ${barRow('Hot/Tendered',buckets.ME.Hot,mePipe,'#9b8df8',buckets.ME.count.Hot)}
-          ${barRow('Potential',buckets.ME.Potential,mePipe,'#f5a623',buckets.ME.count.Potential)}
-        </div>
       </div>
-    </div>
+    </div>`;
 
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm)">Europe — pipeline vs target</div>
-      <div style="display:flex;gap:20px;align-items:flex-end">
-        <div style="flex:1">
-          <div style="display:flex;justify-content:center">${gaugeHTML('g-eu',euPipe,EU_TARGET,'#185FA5')}</div>
-          <div style="text-align:center;margin-top:4px">
-            <div style="font-size:20px;font-weight:500;color:var(--text);font-family:var(--fm)">${fm2(euPipe)}</div>
-            <div style="font-size:11px;color:var(--text3)">of ${fm2(EU_TARGET)} target · ${pct(euPipe,EU_TARGET)}%</div>
-          </div>
-        </div>
-        <div style="flex:1;padding-bottom:8px">
-          ${barRow('Secured',buckets.EU.Secured,euPipe,'#1db8a0',buckets.EU.count.Secured)}
-          ${barRow('Hot/Tendered',buckets.EU.Hot,euPipe,'#9b8df8',buckets.EU.count.Hot)}
-          ${barRow('Potential',buckets.EU.Potential,euPipe,'#f5a623',buckets.EU.count.Potential)}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm)">Pipeline by stage</div>
-      ${stageRows}
-    </div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm)">Lead manager pipeline</div>
-      ${mgrRows}
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">Excludes Lost/Closed. Fee value = calculated where available, else estimated.</div>
-    </div>
-  </div>
-
-  <div style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
-    <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:10px">How this dashboard is calculated</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div>
-        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:5px">Forecast buckets</div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.7">
-          <b style="color:var(--accent)">Secured</b> = Live stage · fee at 100%<br>
-          <b style="color:var(--purple)">Hot / Tendered</b> = Proposal (50%) + Negotiation (75%) weighted<br>
-          <b style="color:var(--amber)">Potential</b> = New Lead through In Assessment · weighted 10–30%<br>
-          <b>Total Forecast</b> = Secured + Hot + Potential
-        </div>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-family:var(--fm);margin-bottom:5px">Fee values &amp; targets</div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.7">
-          Fee = calculated total (PPa + subs) where fee calculator built, else estimated fee from Overview<br>
-          Regional split by PPa Region tag per project<br>
-          Targets: ME £10M · EU £8M · Combined £18M (FY2026)
-        </div>
-      </div>
-    </div>
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;font-family:var(--fm);color:var(--text3)">
-      Probability weights — New Lead: 10% · Contacted: 20% · Qualified/In Assessment: 30% · Proposal: 50% · Negotiation: 75% · Live: 100% · On Hold: 10%
-    </div>
-  </div>`;
-  // Bind tooltip hover events now that cards are in the DOM
-  el.querySelectorAll('.dash-tip-card').forEach(card=>{
-    card.addEventListener('mouseenter',()=>{
-      const html=(window._dashTips||{})[card.dataset.tipkey];
-      if(!html)return;
-      clearTimeout(_tipTimer);
-      getTip().innerHTML=html;
-      getTip().classList.add('show');
-      positionTip(card);
-    });
-    card.addEventListener('mouseleave',()=>{
-      _tipTimer=setTimeout(()=>getTip().classList.remove('show'),80);
-    });
-  });
+  el.innerHTML = filterHTML + summaryHTML + lmCardsHTML + stageHTML;
 }
 
 
