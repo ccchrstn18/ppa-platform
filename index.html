@@ -1348,6 +1348,80 @@ supa.auth.onAuthStateChange(async(event,session)=>{
   }
 });
 
+// ══ DEADLINES MODAL ══════════════════════════════════════
+function openDeadlinesModal(type){
+  // type = 'overdue' or 'upcoming'
+  const allIds=Object.keys(PROJECTS);
+  const now=new Date();
+  const items=[];
+  allIds.forEach(id=>{
+    const p=PROJECTS[id];const pipe=getPipe(id);
+    if(!p.ddl||['Live','Closed Lead','Lost'].includes(pipe.stage||'')) return;
+    const ddlDate=new Date(p.ddl);
+    const daysAway=Math.round((ddlDate-now)/(1000*60*60*24));
+    if(type==='overdue'&&daysAway<0) items.push({id,daysAway,p,pipe,ddlDate});
+    if(type==='upcoming'&&daysAway>=0) items.push({id,daysAway,p,pipe,ddlDate});
+  });
+  items.sort((a,b)=>a.daysAway-b.daysAway);
+
+  const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)',
+    'Information Pending':'var(--blue)','Qualified':'var(--accent2)','In Assessment':'var(--accent2)',
+    'Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
+
+  const rows=items.map(({id,daysAway,p,pipe,ddlDate})=>{
+    const stage=pipe.stage||'New Lead';
+    const stColor=stageColors[stage]||'var(--text3)';
+    const ddlFmt=ddlDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    const dayColor=daysAway<0?'var(--coral)':daysAway<=14?'var(--amber)':'var(--text2)';
+    const dayLabel=daysAway<0?Math.abs(daysAway)+'d overdue':daysAway+'d';
+    return`<tr style="border-bottom:1px solid var(--border);cursor:pointer"
+      onclick="closeModal();switchView('pipeline');setTimeout(()=>{const c=document.getElementById('card-'+'${id}');if(c){c.scrollIntoView({behavior:'smooth',block:'nearest'});}loadProject('${id}',c);},400)"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <td style="padding:8px 12px;font-size:10px;font-family:var(--fm);color:var(--text3)">${p.ref||'—'}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--text2)">${p.lmgr||'—'}</td>
+      <td style="padding:8px 12px"><span style="font-size:10px;padding:2px 7px;border-radius:3px;background:${stColor}22;color:${stColor}">${stage}</span></td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--text2)">${ddlFmt}</td>
+      <td style="padding:8px 12px;font-size:11px;font-weight:700;color:${dayColor};text-align:right">${dayLabel}</td>
+    </tr>`;
+  }).join('');
+
+  const title=type==='overdue'?`Overdue Bids (${items.length})`:`Upcoming Deadlines (${items.length})`;
+  const titleColor=type==='overdue'?'var(--coral)':'var(--amber)';
+
+  document.getElementById('mt').innerHTML=`<span style="color:${titleColor}">${title}</span>`;
+  document.getElementById('mb').innerHTML='';
+  document.getElementById('macts').innerHTML='';
+
+  // Replace modal body with table
+  const modalBox=document.getElementById('modal-box');
+  const existingContent=modalBox.querySelector('.modal-table-wrap');
+  if(existingContent) existingContent.remove();
+  // Also clear mb and ma
+  document.getElementById('mb').innerHTML='';
+  document.getElementById('ma').innerHTML='<button onclick="closeModal()" style="padding:6px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;font-size:12px">Close</button>';
+
+  const tableWrap=document.createElement('div');
+  tableWrap.className='modal-table-wrap';
+  tableWrap.style.cssText='overflow-x:auto;max-height:55vh;overflow-y:auto;margin-top:12px';
+  tableWrap.innerHTML=`<table style="width:100%;border-collapse:collapse;min-width:600px">
+    <thead style="position:sticky;top:0;z-index:1">
+      <tr style="background:var(--bg3)">
+        <th style="padding:8px 12px;font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)">Ref</th>
+        <th style="padding:8px 12px;font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)">Project</th>
+        <th style="padding:8px 12px;font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)">LM</th>
+        <th style="padding:8px 12px;font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)">Stage</th>
+        <th style="padding:8px 12px;font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)">Deadline</th>
+        <th style="padding:8px 12px;font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;text-align:right;border-bottom:1px solid var(--border)">Days</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  modalBox.appendChild(tableWrap);
+  document.getElementById('modal').style.display='flex';
+}
+
 // ══ REALTIME SYNC ═════════════════════════════════════════
 let _realtimeChannel = null;
 
@@ -3511,12 +3585,15 @@ function renderSalesDashboard(){
         </div>
         <!-- Upcoming deadlines -->
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px">
-          <div style="font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">
-            Upcoming Deadlines
-            ${overdue.length>0?`<span style="margin-left:8px;background:var(--coral);color:#fff;font-size:8px;padding:1px 6px;border-radius:8px">${overdue.length} overdue</span>`:''}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600">Upcoming Deadlines</span>
+            <div style="display:flex;gap:5px;align-items:center">
+              ${overdue.length>0?`<span onclick="openDeadlinesModal('overdue')" style="background:var(--coral);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;cursor:pointer">${overdue.length} overdue</span>`:''}
+              ${upcoming.length>5?`<span onclick="openDeadlinesModal('upcoming')" style="background:var(--bg4);color:var(--text3);font-size:9px;padding:2px 8px;border-radius:8px;cursor:pointer;border:1px solid var(--border)">View all ${upcoming.length}</span>`:''}
+            </div>
           </div>
           ${overdue.slice(0,2).map(({id,daysAway,p,pipe})=>`
-            <div onclick="switchView('pipeline');setTimeout(()=>{const c=document.getElementById('card-'+\'${id}\');loadProject(\'${id}\',c);},400)"
+            <div onclick="switchView('pipeline');setTimeout(()=>{const c=document.getElementById('card-'+'${id}');if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'});loadProject('${id}',c);},400)"
               style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;margin-bottom:4px;background:rgba(240,90,79,.08);border:1px solid rgba(240,90,79,.2);border-radius:5px;cursor:pointer">
               <div style="min-width:0">
                 <div style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</div>
@@ -3527,7 +3604,7 @@ function renderSalesDashboard(){
               </div>
             </div>`).join('')}
           ${upcoming.slice(0,5-Math.min(2,overdue.length)).map(({id,daysAway,p,pipe})=>`
-            <div onclick="switchView('pipeline');setTimeout(()=>{const c=document.getElementById('card-'+\'${id}\');loadProject(\'${id}\',c);},400)"
+            <div onclick="switchView('pipeline');setTimeout(()=>{const c=document.getElementById('card-'+'${id}');if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'});loadProject('${id}',c);},400)"
               style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;margin-bottom:4px;background:var(--bg3);border-radius:5px;cursor:pointer" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">
               <div style="min-width:0">
                 <div style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'—'}</div>
