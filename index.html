@@ -3172,8 +3172,8 @@ function renderSalesDashboard(){
     const wonPct=Math.min(100,actual/max*100);
     const forecastPct=Math.min(100,forecast/max*100);
     const targetPct=Math.min(99,target/max*100);
-    const wonColor='var(--teal)';
-    const forecastColor='var(--purple)';
+    const wonColor='var(--accent)';
+    const forecastColor='var(--blue)';
     return`
       <div style="margin-bottom:12px">
         <!-- Won bar -->
@@ -3204,6 +3204,86 @@ function renderSalesDashboard(){
           <span style="font-size:9px;font-family:var(--fm);color:var(--text3)">${pct(actual,target)}% won · ${pct(forecast,target)}% forecast</span>
         </div>
       </div>`;
+  }
+
+  // ── PROJECT TABLE ────────────────────────────────────────
+  function projectTable(ids, showLM, lmKey){
+    if(!ids.length) return`<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--fm);font-size:11px">No projects in this period</div>`;
+    const sortKey=window._dashSort||'fee';
+    const sortDir=window._dashSortDir||'desc';
+    function getVal(id){
+      const p=PROJECTS[id];const pipe=getPipe(id);
+      let feeGBP=0;
+      try{feeGBP=getTotalProjectFeeGBP(id)||0;}catch(e){}
+      if(!feeGBP&&p.efee&&!isNaN(p.efee)) feeGBP=parseFloat(p.efee)*(FX.GBP/FX[p.feecur||'GBP']);
+      const prob=getStageProbability(pipe.stage||'New Lead');
+      return{p,pipe,feeGBP,weighted:feeGBP*prob};
+    }
+    const sorted=[...ids].sort((a,b)=>{
+      const va=getVal(a),vb=getVal(b);
+      let diff=0;
+      if(sortKey==='fee') diff=va.feeGBP-vb.feeGBP;
+      else if(sortKey==='weighted') diff=va.weighted-vb.weighted;
+      else if(sortKey==='stage') diff=(va.pipe.stage||'').localeCompare(vb.pipe.stage||'');
+      else if(sortKey==='ddl') diff=new Date(va.p.ddl||0)-new Date(vb.p.ddl||0);
+      return sortDir==='desc'?-diff:diff;
+    });
+    const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)',
+      'Information Pending':'var(--blue)','Qualified':'var(--accent2)','In Assessment':'var(--accent2)',
+      'Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
+    function th(label,key){
+      const active=sortKey===key;
+      const dir=active&&sortDir==='desc'?'▼':active?'▲':'';
+      return`<th onclick="window._dashSort='${key}';window._dashSortDir=${active}?window._dashSortDir==='desc'?'asc':'desc':'desc';renderSalesDashboard()"
+        style="padding:6px 10px;font-size:9px;font-family:var(--fm);letter-spacing:.5px;text-transform:uppercase;color:${active?'var(--accent)':'var(--text3)'};font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--border);background:var(--bg3)">${label} ${dir}</th>`;
+    }
+    const lmNative=lmKey||(showLM?null:'T. Ryan');
+    const rows=sorted.map(id=>{
+      const {p,pipe,feeGBP,weighted}=getVal(id);
+      const stage=pipe.stage||'New Lead';
+      const stColor=stageColors[stage]||'var(--text3)';
+      const dispKey=lmKey||p.lmgr||'T. Ryan';
+      const feeFmt=fmLM(feeGBP,dispKey);
+      const wFmt=fmLM(weighted,dispKey);
+      const ddl=p.ddl?new Date(p.ddl).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—';
+      return`<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="switchView('pipeline');setTimeout(()=>{const card=document.getElementById('card-'+'${id}');loadProject('${id}',card);},400)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <td style="padding:6px 10px;font-size:10px;font-family:var(--fm);color:var(--text3);white-space:nowrap">${p.ref||'—'}</td>
+        <td style="padding:6px 10px;font-size:11px;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||'Unnamed'}</td>
+        ${showLM?`<td style="padding:6px 10px;font-size:10px;color:var(--text2)">${p.lmgr||'—'}</td>`:''}
+        <td style="padding:6px 10px"><span style="font-size:10px;font-family:var(--fm);padding:2px 7px;border-radius:3px;background:${stColor}22;color:${stColor};white-space:nowrap">${stage}</span></td>
+        <td style="padding:6px 10px;font-size:11px;font-family:var(--fm);font-weight:600;color:var(--text);text-align:right;white-space:nowrap">${feeFmt}</td>
+        <td style="padding:6px 10px;font-size:11px;font-family:var(--fm);font-weight:600;color:var(--blue);text-align:right;white-space:nowrap">${wFmt}</td>
+        <td style="padding:6px 10px;font-size:10px;font-family:var(--fm);color:var(--text3);text-align:right;white-space:nowrap">${ddl}</td>
+      </tr>`;
+    }).join('');
+    return`<div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          ${th('Ref','ref')}
+          <th style="padding:6px 10px;font-size:9px;font-family:var(--fm);letter-spacing:.5px;text-transform:uppercase;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border);background:var(--bg3)">Project</th>
+          ${showLM?'<th style="padding:6px 10px;font-size:9px;font-family:var(--fm);letter-spacing:.5px;text-transform:uppercase;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border);background:var(--bg3)">LM</th>':''}
+          ${th('Stage','stage')}
+          ${th('Est. Fee','fee')}
+          ${th('Weighted','weighted')}
+          ${th('Deadline','ddl')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function collapsibleTable(title, ids, showLM, lmKey){
+    const colKey='_dashTableOpen_'+(lmKey||'owner');
+    if(window[colKey]===undefined) window[colKey]=false;
+    const isOpen=window[colKey];
+    return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
+      <div onclick="window['${colKey}']=!window['${colKey}'];renderSalesDashboard()"
+        style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--bg3);border-bottom:${isOpen?'1px solid var(--border)':'none'}">
+        <span style="font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600">${title} <span style="color:var(--text2)">(${ids.length})</span></span>
+        <span style="font-size:12px;color:var(--text3);transition:transform .2s;display:inline-block;transform:${isOpen?'rotate(180deg)':'rotate(0deg)'}"">▾</span>
+      </div>
+      ${isOpen?projectTable(ids,showLM,lmKey):''}
+    </div>`;
   }
 
   // ── DONUT PIE ─────────────────────────────────────────────
@@ -3290,7 +3370,7 @@ function renderSalesDashboard(){
           <div style="font-size:9px;color:var(--text3)">Avg deal</div>
         </div>
         <div style="text-align:center">
-          <div style="font-size:12px;font-weight:700;font-family:var(--fm);color:var(--teal)">${fmLM(s.won,key)}</div>
+          <div style="font-size:12px;font-weight:700;font-family:var(--fm);color:var(--accent)">${fmLM(s.won,key)}</div>
           <div style="font-size:9px;color:var(--text3)">Won</div>
         </div>
       </div>
@@ -3432,7 +3512,7 @@ function renderSalesDashboard(){
         </div>
       </div>`;
 
-    el.innerHTML=dateFilterHTML+kpiHTML+lmCardsHTML+pieHTML+stageHTML;
+    el.innerHTML=dateFilterHTML+kpiHTML+lmCardsHTML+collapsibleTable('Project Breakdown',allIds,true,null)+pieHTML+stageHTML;
 
   } else {
     // ── INDIVIDUAL LM VIEW ────────────────────────────────
@@ -3524,7 +3604,7 @@ function renderSalesDashboard(){
         </div>
       </div>`;
 
-    el.innerHTML=dateFilterHTML+myKpiHTML+myMainHTML;
+    el.innerHTML=dateFilterHTML+myKpiHTML+myMainHTML+collapsibleTable('My Projects',s.ids,false,key);
   }
 }
 
