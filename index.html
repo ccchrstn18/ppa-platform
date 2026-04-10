@@ -636,9 +636,30 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
   <div class="nav" style="opacity:.4;cursor:not-allowed" title="Coming soon"><span class="ndot"></span>Dashboard<span class="nbadge" style="font-size:9px;background:var(--bg4);color:var(--text3)">Soon</span></div>
   <div class="nav" style="opacity:.4;cursor:not-allowed" title="Coming soon"><span class="ndot"></span>Fee Register<span class="nbadge" style="font-size:9px;background:var(--bg4);color:var(--text3)">Soon</span></div>
   <div class="sb-bot">
-    <div class="upill" id="user-badge" onclick="showUserMenu()" title="Click to sign out" style="cursor:pointer">
-      <div class="uav" id="ub-avatar">?</div>
-      <div><div class="uname" id="ub-name">Loading…</div><div class="urole" id="ub-role">—</div></div>
+    <div style="position:relative">
+      <div class="upill" id="user-badge" onclick="toggleUserMenu()" style="cursor:pointer">
+        <div class="uav" id="ub-avatar">?</div>
+        <div style="flex:1;min-width:0">
+          <div class="uname" id="ub-name">Loading…</div>
+          <div class="urole" id="ub-role">—</div>
+        </div>
+        <div style="font-size:10px;color:var(--text3)">⋮</div>
+      </div>
+      <div id="user-menu" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px var(--sh);overflow:hidden;z-index:500">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;color:var(--text)" id="um-name">—</div>
+          <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:2px" id="um-email">—</div>
+        </div>
+        <div onclick="toggleUserMenu();switchView('dash')" style="padding:9px 14px;font-size:12px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+          <span>📊</span> My Dashboard
+        </div>
+        <div onclick="toggleUserMenu()" style="padding:9px 14px;font-size:12px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+          <span>⚙️</span> Settings <span style="font-size:9px;color:var(--text3);margin-left:auto">Soon</span>
+        </div>
+        <div onclick="signOut()" style="padding:9px 14px;font-size:12px;color:var(--coral);cursor:pointer;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)" onmouseover="this.style.background='rgba(240,90,79,.06)'" onmouseout="this.style.background=''">
+          <span>→</span> Sign out
+        </div>
+      </div>
     </div>
   </div>
 </aside>
@@ -1288,11 +1309,33 @@ function updateUserBadge(profile,user){
   if(n)n.textContent=name;
   if(r)r.textContent=role+(region?' · '+region:'');
   if(a)a.textContent=initials;
+  // Update menu header
+  const mn=document.getElementById('um-name');
+  const me=document.getElementById('um-email');
+  if(mn)mn.textContent=name;
+  if(me)me.textContent=user?.email||'';
+}
+
+function toggleUserMenu(){
+  const menu=document.getElementById('user-menu');
+  if(!menu) return;
+  const isOpen=menu.style.display==='block';
+  menu.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    // Close when clicking outside
+    setTimeout(()=>{
+      document.addEventListener('click',function _close(e){
+        if(!document.getElementById('user-badge')?.closest('[style*="position:relative"]')?.contains(e.target)){
+          menu.style.display='none';
+          document.removeEventListener('click',_close);
+        }
+      });
+    },10);
+  }
 }
 
 async function showUserMenu(){
-  const ok=confirm('Signed in as '+currentUser?.email+'\n\nClick OK to sign out.');
-  if(ok) await signOut();
+  toggleUserMenu();
 }
 
 async function signOut(){
