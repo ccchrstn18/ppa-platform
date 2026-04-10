@@ -1410,26 +1410,43 @@ supa.auth.onAuthStateChange(async(event,session)=>{
   }
 });
 
-// ── Refresh fallback — if INITIAL_SESSION never fires, manually recover ──
-setTimeout(async () => {
-  if(_dataLoaded) return; // already handled by onAuthStateChange
-  console.log('%cAUTH%c [fallback] onAuthStateChange did not fire — trying getSession()', 
-    'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
+// ── Immediate localStorage session recovery ──────────────────
+// Don't wait for onAuthStateChange — read the token directly and restore session
+(async () => {
   try {
-    const { data: { session }, error } = await supa.auth.getSession();
-    console.log('%cAUTH%c [fallback] getSession result:', 
+    // Find the sb- auth token key
+    const sbKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if(!sbKey) {
+      console.log('%cAUTH%c [startup] No session token in localStorage', 
+        'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
+      return;
+    }
+    const stored = JSON.parse(localStorage.getItem(sbKey));
+    console.log('%cAUTH%c [startup] Found stored session:', 
       'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
-      session ? { user: session.user?.email, expires_at: session.expires_at } : 'NO SESSION', error || '');
-    if(session?.user && !_dataLoaded) {
-      await _handleAuthUser(session.user);
-    } else if(!session) {
-      document.getElementById('auth-screen').style.display='flex';
+      { user: stored?.user?.email, expires_at: stored?.expires_at });
+    if(!stored?.user) return;
+    // Check if token is expired
+    const now = Math.round(Date.now()/1000);
+    if(stored.expires_at && stored.expires_at < now) {
+      console.log('%cAUTH%c [startup] Token expired — attempting refresh', 
+        'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
+      const { data, error } = await supa.auth.refreshSession({ refresh_token: stored.refresh_token });
+      if(error || !data?.user) {
+        console.log('%cAUTH%c [startup] Refresh failed:', 
+          'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit', error);
+        return;
+      }
+      await _handleAuthUser(data.user);
+    } else {
+      // Token still valid — restore session directly
+      await supa.auth.setSession({ access_token: stored.access_token, refresh_token: stored.refresh_token });
+      await _handleAuthUser(stored.user);
     }
   } catch(e) {
-    console.error('[AUTH fallback] getSession failed:', e);
-    document.getElementById('auth-screen').style.display='flex';
+    console.error('[AUTH startup] Failed to restore session:', e);
   }
-}, 2000); // wait 2s for onAuthStateChange to fire first
+})();
 
 // ══ DEADLINES MODAL ══════════════════════════════════════
 function openDeadlinesModal(type){
