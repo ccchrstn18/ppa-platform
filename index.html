@@ -1355,37 +1355,47 @@ async function signOut(){
 }
 
 let _initialSessionFired = false;
+let _dataLoaded = false; // prevent double-loading on INITIAL_SESSION + SIGNED_IN
+
+async function _handleAuthUser(user) {
+  if(!user) return;
+  if(_dataLoaded) return; // already loaded this session
+  _dataLoaded = true;
+  currentUser = user;
+  try{currentProfile=await loadProfile(user);}catch(e){currentProfile=null;}
+  updateUserBadge(currentProfile,user);
+  document.getElementById('auth-screen').style.display='none';
+  // Show currency switcher only for owner role
+  const _cs=document.getElementById('currency-switcher');
+  if(_cs) _cs.style.display=currentProfile?.role==='owner'?'flex':'none';
+  // Set default currency based on user
+  const _aedUsers=['T. Ryan','J. Fox','Tom Ryan','Jeff Fox'];
+  const _uname=currentProfile?.name||'';
+  if(_aedUsers.some(n=>_uname.includes(n.split(' ')[1])||_uname===n)){
+    setCur('AED',null);
+  }
+  try{
+    const loaded=await loadFromSupabase();
+    if(!loaded){initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;}
+  }catch(e){
+    console.error('[AUTH] Load error:',e);
+    initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;
+  }
+  setTimeout(bindKpiTips,300);
+}
+
 supa.auth.onAuthStateChange(async(event,session)=>{
   if(event==='INITIAL_SESSION') _initialSessionFired = true;
-
-  _realtimeUpdating = false; // reset on every auth event
+  _realtimeUpdating = false;
   const user = session?.user;
   if(user){
-    currentUser = user;
-    try{currentProfile=await loadProfile(user);}catch(e){currentProfile=null;}
-    updateUserBadge(currentProfile,user);
-    document.getElementById('auth-screen').style.display='none';
-    // Show currency switcher only for owner role
-    const _cs=document.getElementById('currency-switcher');
-    if(_cs) _cs.style.display=currentProfile?.role==='owner'?'flex':'none';
-    // Set default currency based on user
-    const _aedUsers=['T. Ryan','J. Fox','Tom Ryan','Jeff Fox'];
-    const _uname=currentProfile?.name||'';
-    const _ulmgr=currentProfile?.initials||'';
-    if(_aedUsers.some(n=>_uname.includes(n.split(' ')[1])||_uname===n)){
-      setCur('AED',null);
-    }
-    try{
-      const loaded=await loadFromSupabase();
-      if(!loaded){initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;}
-      // startRealtime(); // temporarily disabled — causes client deadlock
-    }catch(e){
-      console.error('[AUTH] Load error:',e);
-      initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;
-    }
-    setTimeout(bindKpiTips,300);
+    // INITIAL_SESSION fires on refresh with existing session — load immediately
+    // SIGNED_IN fires on fresh login — also load, but _dataLoaded prevents double load
+    if(event==='SIGNED_IN') _dataLoaded = false; // fresh login always reloads
+    await _handleAuthUser(user);
   } else {
     if(_initialSessionFired){
+      _dataLoaded = false;
       document.getElementById('auth-screen').style.display='flex';
     }
     _syncEnabled=false;
