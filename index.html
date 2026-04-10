@@ -1402,6 +1402,27 @@ supa.auth.onAuthStateChange(async(event,session)=>{
   }
 });
 
+// ── Refresh fallback — if INITIAL_SESSION never fires, manually recover ──
+setTimeout(async () => {
+  if(_dataLoaded) return; // already handled by onAuthStateChange
+  console.log('%cAUTH%c [fallback] onAuthStateChange did not fire — trying getSession()', 
+    'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
+  try {
+    const { data: { session }, error } = await supa.auth.getSession();
+    console.log('%cAUTH%c [fallback] getSession result:', 
+      'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
+      session ? { user: session.user?.email, expires_at: session.expires_at } : 'NO SESSION', error || '');
+    if(session?.user && !_dataLoaded) {
+      await _handleAuthUser(session.user);
+    } else if(!session) {
+      document.getElementById('auth-screen').style.display='flex';
+    }
+  } catch(e) {
+    console.error('[AUTH fallback] getSession failed:', e);
+    document.getElementById('auth-screen').style.display='flex';
+  }
+}, 2000); // wait 2s for onAuthStateChange to fire first
+
 // ══ DEADLINES MODAL ══════════════════════════════════════
 function openDeadlinesModal(type){
   // type = 'overdue' or 'upcoming'
