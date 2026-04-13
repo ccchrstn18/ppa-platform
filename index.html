@@ -1367,29 +1367,43 @@ let _dataLoaded = false; // prevent double-loading on INITIAL_SESSION + SIGNED_I
 
 async function _handleAuthUser(user) {
   if(!user) return;
-  if(_dataLoaded) return; // already loaded this session
+  if(_dataLoaded) return;
   _dataLoaded = true;
   currentUser = user;
-  try{currentProfile=await loadProfile(user);}catch(e){currentProfile=null;}
-  updateUserBadge(currentProfile,user);
+
+  // Show app immediately — don't block on profile
   document.getElementById('auth-screen').style.display='none';
-  // Show currency switcher only for owner role
-  const _cs=document.getElementById('currency-switcher');
-  if(_cs) _cs.style.display=currentProfile?.role==='owner'?'flex':'none';
-  // Set default currency based on user
-  const _aedUsers=['T. Ryan','J. Fox','Tom Ryan','Jeff Fox'];
-  const _uname=currentProfile?.name||'';
-  if(_aedUsers.some(n=>_uname.includes(n.split(' ')[1])||_uname===n)){
-    setCur('AED',null);
+
+  // Load profile with retry — setSession may need a moment to propagate auth token
+  let profileLoaded = false;
+  for(let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const {data, error} = await supa.from('profiles').select('*').eq('id', user.id).single();
+      if(data) { currentProfile = data; profileLoaded = true; break; }
+      if(attempt < 2) await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+    } catch(e) {}
   }
-  try{
-    const loaded=await loadFromSupabase();
+  if(!profileLoaded) currentProfile = null;
+
+  console.log('%cAUTH%c [_handleAuthUser] profile:', 
+    'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
+    currentProfile?.name || 'null (using email fallback)');
+
+  updateUserBadge(currentProfile, user);
+  const _cs = document.getElementById('currency-switcher');
+  if(_cs) _cs.style.display = currentProfile?.role==='owner' ? 'flex' : 'none';
+  const _aedUsers = ['T. Ryan','J. Fox','Tom Ryan','Jeff Fox'];
+  const _uname = currentProfile?.name || '';
+  if(_aedUsers.some(n => _uname.includes(n.split(' ')[1]) || _uname===n)) setCur('AED', null);
+
+  try {
+    const loaded = await loadFromSupabase();
     if(!loaded){initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;}
-  }catch(e){
+  } catch(e) {
     console.error('[AUTH] Load error:',e);
     initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;
   }
-  setTimeout(bindKpiTips,300);
+  setTimeout(bindKpiTips, 300);
 }
 
 supa.auth.onAuthStateChange(async(event,session)=>{
