@@ -1381,20 +1381,25 @@ async function _handleAuthUser(user) {
   // Show app immediately — don't block on profile
   document.getElementById('auth-screen').style.display='none';
 
-  // Load profile with retry — setSession may need a moment to propagate auth token
-  let profileLoaded = false;
-  for(let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const {data, error} = await supa.from('profiles').select('*').eq('id', user.id).single();
-      if(data) { currentProfile = data; profileLoaded = true; break; }
-      if(attempt < 2) await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
-    } catch(e) {}
+  // Load data first — don't block on profile query
+  // Profile is loaded in background after data is ready
+  try {
+    const loaded = await loadFromSupabase();
+    if(!loaded){initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;}
+  } catch(e) {
+    console.error('[AUTH] Load error:',e);
+    initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;
   }
-  if(!profileLoaded) currentProfile = null;
+
+  // Load profile after data (non-blocking)
+  try {
+    const {data} = await supa.from('profiles').select('*').eq('id', user.id).single();
+    currentProfile = data || null;
+  } catch(e) { currentProfile = null; }
 
   console.log('%cAUTH%c [_handleAuthUser] profile:', 
     'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
-    currentProfile?.name || 'null (using email fallback)');
+    currentProfile?.name || 'null');
 
   updateUserBadge(currentProfile, user);
   const _cs = document.getElementById('currency-switcher');
@@ -1403,13 +1408,6 @@ async function _handleAuthUser(user) {
   const _uname = currentProfile?.name || '';
   if(_aedUsers.some(n => _uname.includes(n.split(' ')[1]) || _uname===n)) setCur('AED', null);
 
-  try {
-    const loaded = await loadFromSupabase();
-    if(!loaded){initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;}
-  } catch(e) {
-    console.error('[AUTH] Load error:',e);
-    initSampleData();initMondayData();updateKPIs();try{updateListBadges();}catch(e){}_syncEnabled=true;
-  }
   setTimeout(bindKpiTips, 300);
 }
 
