@@ -1399,15 +1399,8 @@ supa.auth.onAuthStateChange(async(event,session)=>{
   if(user){
     // INITIAL_SESSION fires on refresh with existing session — load immediately
     // SIGNED_IN fires on fresh login — also load, but _dataLoaded prevents double load
-    // Only reset _dataLoaded for genuine fresh logins (not setSession restores)
-    // We can detect a fresh login by checking if _dataLoaded is already true 
-    // (meaning startup already loaded) vs false (first login)
-    if(event==='SIGNED_IN' && !_dataLoaded) {
-      // genuine fresh login — proceed
-    } else if(event==='SIGNED_IN' && _dataLoaded) {
-      // setSession triggered this SIGNED_IN — already loaded, skip
-      return;
-    }
+    // Skip if startup already handled this session
+    if(event==='SIGNED_IN' && _dataLoaded) return;
     await _handleAuthUser(user);
   } else {
     if(_initialSessionFired){
@@ -1457,13 +1450,13 @@ supa.auth.onAuthStateChange(async(event,session)=>{
       console.log('%cAUTH%c [startup] setSession result:', 
         'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
         sd?.user?.email || 'no user', se || 'no error');
-      // setSession fires SIGNED_IN → onAuthStateChange → _handleAuthUser
-      // Don't call _handleAuthUser directly here — let the event chain handle it
-      if(se && !sd?.user) {
-        console.log('%cAUTH%c [startup] setSession failed, trying getSession', 
+      // Directly load after setSession — don't rely on onAuthStateChange
+      if(sd?.user) {
+        _dataLoaded = false; // reset so _handleAuthUser proceeds
+        await _handleAuthUser(sd.user);
+      } else {
+        console.log('%cAUTH%c [startup] setSession returned no user', 
           'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
-        const { data: gd } = await supa.auth.getSession();
-        if(gd?.session?.user) await _handleAuthUser(gd.session.user);
       }
     }
   } catch(e) {
