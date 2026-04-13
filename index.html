@@ -1455,21 +1455,26 @@ supa.auth.onAuthStateChange(async(event,session)=>{
       // Token still valid — use setSession which triggers onAuthStateChange → SIGNED_IN
       // That will call _handleAuthUser automatically via the auth listener
       // We just need the auth token active on the REST client first
-      const { data: sd, error: se } = await supa.auth.setSession({ 
-        access_token: stored.access_token, 
-        refresh_token: stored.refresh_token 
-      });
-      console.log('%cAUTH%c [startup] setSession result:', 
+      // Don't call setSession — it triggers getSession() internally which hangs
+      // Instead manually inject the token into the REST client and load directly
+      const accessToken = stored.access_token;
+      const refreshToken = stored.refresh_token;
+      
+      console.log('%cAUTH%c [startup] Restoring session manually', 
         'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
-        sd?.user?.email || 'no user', se || 'no error');
-      // Directly load after setSession — don't rely on onAuthStateChange
-      if(sd?.user) {
-        _dataLoaded = false; // reset so _handleAuthUser proceeds
-        await _handleAuthUser(sd.user);
-      } else {
-        console.log('%cAUTH%c [startup] setSession returned no user', 
-          'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
+        stored.user?.email);
+
+      // Manually set auth headers on the REST client
+      window._restoredAccessToken = accessToken;
+      
+      // Patch supa.rest headers directly
+      if(supa.rest?.headers) {
+        supa.rest.headers['Authorization'] = `Bearer ${accessToken}`;
+        supa.rest.headers['apikey'] = SUPA_ANON;
       }
+      
+      _dataLoaded = false;
+      await _handleAuthUser(stored.user);
     }
   } catch(e) {
     console.error('[AUTH startup] Failed to restore session:', e);
