@@ -1399,7 +1399,15 @@ supa.auth.onAuthStateChange(async(event,session)=>{
   if(user){
     // INITIAL_SESSION fires on refresh with existing session — load immediately
     // SIGNED_IN fires on fresh login — also load, but _dataLoaded prevents double load
-    if(event==='SIGNED_IN') _dataLoaded = false; // fresh login always reloads
+    // Only reset _dataLoaded for genuine fresh logins (not setSession restores)
+    // We can detect a fresh login by checking if _dataLoaded is already true 
+    // (meaning startup already loaded) vs false (first login)
+    if(event==='SIGNED_IN' && !_dataLoaded) {
+      // genuine fresh login — proceed
+    } else if(event==='SIGNED_IN' && _dataLoaded) {
+      // setSession triggered this SIGNED_IN — already loaded, skip
+      return;
+    }
     await _handleAuthUser(user);
   } else {
     if(_initialSessionFired){
@@ -1439,7 +1447,9 @@ supa.auth.onAuthStateChange(async(event,session)=>{
       }
       await _handleAuthUser(data.user);
     } else {
-      // Token still valid — restore session then verify with getSession
+      // Token still valid — use setSession which triggers onAuthStateChange → SIGNED_IN
+      // That will call _handleAuthUser automatically via the auth listener
+      // We just need the auth token active on the REST client first
       const { data: sd, error: se } = await supa.auth.setSession({ 
         access_token: stored.access_token, 
         refresh_token: stored.refresh_token 
@@ -1447,10 +1457,11 @@ supa.auth.onAuthStateChange(async(event,session)=>{
       console.log('%cAUTH%c [startup] setSession result:', 
         'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
         sd?.user?.email || 'no user', se || 'no error');
-      if(sd?.user) {
-        await _handleAuthUser(sd.user);
-      } else {
-        // setSession failed — try getSession as last resort
+      // setSession fires SIGNED_IN → onAuthStateChange → _handleAuthUser
+      // Don't call _handleAuthUser directly here — let the event chain handle it
+      if(se && !sd?.user) {
+        console.log('%cAUTH%c [startup] setSession failed, trying getSession', 
+          'background:#1a3a1a;color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
         const { data: gd } = await supa.auth.getSession();
         if(gd?.session?.user) await _handleAuthUser(gd.session.user);
       }
