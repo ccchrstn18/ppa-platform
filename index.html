@@ -1426,20 +1426,15 @@ supa.auth.onAuthStateChange(async(event,session)=>{
     // Find the sb- auth token key
     const sbKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
     if(!sbKey) {
-color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
       return;
     }
     const stored = JSON.parse(localStorage.getItem(sbKey));
-color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
-      { user: stored?.user?.email, expires_at: stored?.expires_at });
     if(!stored?.user) return;
     // Check if token is expired
     const now = Math.round(Date.now()/1000);
     if(stored.expires_at && stored.expires_at < now) {
-color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit');
       const { data, error } = await supa.auth.refreshSession({ refresh_token: stored.refresh_token });
       if(error || !data?.user) {
-color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit', error);
         return;
       }
       await _handleAuthUser(data.user);
@@ -1451,7 +1446,6 @@ color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit'
       // Instead manually inject the token into the REST client and load directly
       const accessToken = stored.access_token;
       const refreshToken = stored.refresh_token;
-color:#8dc63f;padding:2px 6px;border-radius:3px;font-weight:700','color:inherit',
         stored.user?.email);
 
       // Manually set auth headers on the REST client
