@@ -931,10 +931,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
                       <option>Retail colocation</option><option>Enterprise</option>
                       <option>Edge / micro (1–10MW)</option><option>Modular</option><option>Mixed / campus</option>
                     </select></div>
-                  <div class="f"><label>Bid type</label>
+                  <div class="f"><label>Appointment type</label>
                     <select id="ovbtype" onchange="mu()">
                       <option value="">Select…</option>
-                      <option>New bid</option><option>Repeat client</option><option>Framework call-off</option>
+                      <option>Competitive tender</option><option>Direct appointment</option>
+                      <option>Framework call-off</option><option>Negotiated</option>
                     </select></div>
                   <div class="f"><label>Rate type</label>
                     <select id="ovrtype" onchange="mu()">
@@ -944,7 +945,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
                   <div class="f"><label>Bid manager</label>
                     <select id="ovbmgr" onchange="mu()">
                       <option value="">Select…</option>
-                      <option>S. Malik</option><option>J. Okafor</option><option>P. Nair</option><option>A. Rahman</option>
+                      <option>T. Ryan</option><option>A. Tizard</option><option>D. Watts</option>
+                      <option>J. Phillips</option><option>B. Whitfield</option><option>J. Fox</option>
                     </select></div>
                   <div class="f"><label>Submission deadline</label><input type="date" id="ovddl" oninput="mu()"/></div>
                   <div class="f" style="grid-column:1/-1"><label>Sub-consultants</label>
@@ -961,7 +963,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
                     <div id="ovefee-hint" style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:3px;min-height:14px"></div>
                   </div>
                 </div>
-                <div class="f"><label>Additional notes</label><textarea id="ovnotes" placeholder="Decision makers, constraints, context…" oninput="mu()"></textarea></div>
+                <div class="f"><label>Additional notes</label><textarea id="ovnotes" placeholder="Key decision makers, procurement constraints, known competitors, client budget signals, strategic importance. Internal notes — not included in the proposal." oninput="mu()"></textarea></div>
               </div>
             </div>
           </div>
@@ -1823,7 +1825,7 @@ const _cfgDefault = () => ({
   step:1, mode:'new', projectId:null,
   // Step 1
   title:'', company:'', contactName:'', contactRole:'', contactEmail:'', contactPhone:'',
-  location:'', lmgr:'', building:'', src:'', brief:'',
+  location:'', lmgr:'', building:'', src:'', brief:'', contactPhoneCC:'+971',
   itLoad:null, coolingId:'air', scopeId:'full_mep', framework:'riba',
   // Step 2
   stages:[], durations:{},
@@ -1852,7 +1854,8 @@ function openCfgModal(mode='new', projectId=null) {
     _cfg.contactName  = p.client||'';
     _cfg.contactRole  = p.crole||'';
     _cfg.contactEmail = p.cemail||'';
-    _cfg.contactPhone = p.cphone||'';
+    _cfg.contactPhone   = p.cphone||'';
+    _cfg.contactPhoneCC = p.cc||'+971';
     _cfg.location     = p.loc||'';
     _cfg.src          = p.src||'';
   } else {
@@ -1944,7 +1947,8 @@ function cfgSaveStep(step) {
       _cfg.contactName  = (document.getElementById('cfg-contact-name')?.value||'').trim();
       _cfg.contactRole  = (document.getElementById('cfg-contact-role')?.value||'').trim();
       _cfg.contactEmail = (document.getElementById('cfg-contact-email')?.value||'').trim();
-      _cfg.contactPhone = (document.getElementById('cfg-contact-phone')?.value||'').trim();
+      _cfg.contactPhone   = (document.getElementById('cfg-contact-phone')?.value||'').trim();
+      _cfg.contactPhoneCC = document.getElementById('cfg-contact-cc')?.value||'+971';
     }
   }
   if(step===2) {
@@ -2095,7 +2099,16 @@ function cfgStep1(body, sub) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${cfgField('Contact email', cfgInp('cfg-contact-email','email','e.g. m.alrashid@neom.com',_cfg.contactEmail))}
-      ${cfgField('Contact phone', cfgInp('cfg-contact-phone','tel','e.g. +966 50 xxx xxxx',_cfg.contactPhone))}
+      <div style="margin-bottom:13px">
+        <label style="${_cfgLblStyle}">Contact phone</label>
+        <div style="display:flex;gap:6px">
+          <select id="cfg-contact-cc" style="padding:8px 6px;font-size:12px;font-family:var(--fm);background:var(--inp);border:1px solid var(--border2);border-radius:5px;color:var(--text);flex-shrink:0;width:110px">
+            ${['+971 AE','+966 SA','+974 QA','+973 BH','+965 KW','+968 OM','+44 GB','+1 US','+33 FR','+49 DE','+31 NL','+65 SG'].map(o=>{const[code,flag]=o.split(' ');return \`<option value="\${code}" \${(_cfg.contactPhoneCC||'+971')===code?'selected':''}>\${code} (\${flag})</option>\`;}).join('')}
+          </select>
+          <input id="cfg-contact-phone" type="tel" placeholder="50 123 4567" value="${_cfg.contactPhone||''}"
+            style="flex:1;padding:8px 10px;font-size:12px;font-family:var(--fm);background:var(--inp);border:1px solid var(--border2);border-radius:5px;color:var(--text)"/>
+        </div>
+      </div>
     </div>
     <div style="height:1px;background:var(--border);margin:6px 0 14px"></div>` : '';
 
@@ -2433,6 +2446,7 @@ async function cfgCreateProject(cfg) {
     client:cfg.contactName||'',
     crole:cfg.contactRole||'',
     cemail:cfg.contactEmail||'',
+    cc:cfg.contactPhoneCC||'+971',
     cphone:cfg.contactPhone||'',
     loc:cfg.location||'',
     src:cfg.src||'',
@@ -2485,6 +2499,7 @@ function cfgApplyCoversheet(projectId, cfg) {
       p.client  = cfg.contactName  || p.client  || '';
       p.crole   = cfg.contactRole  || p.crole   || '';
       p.cemail  = cfg.contactEmail || p.cemail  || '';
+      p.cc     = cfg.contactPhoneCC || p.cc || '+971';
       p.cphone  = cfg.contactPhone || p.cphone  || '';
       p.loc     = cfg.location || p.loc || '';
       p.src     = cfg.src      || p.src || '';
@@ -2492,6 +2507,23 @@ function cfgApplyCoversheet(projectId, cfg) {
     }
     // Brief — always write (was edited in step 4)
     if(cfg.brief) p.brief = cfg.brief;
+    // Derived fields — auto-populate from wizard data
+    // DC type from IT load band
+    const _band = CFG_MATRIX.bands.find(b=>cfg.itLoad>=b.min&&cfg.itLoad<b.max)||CFG_MATRIX.bands[CFG_MATRIX.bands.length-1];
+    const _dctMap = {A:'Edge / micro (1-10MW)',B:'Enterprise',C:'Enterprise',D:'Hyperscale (100MW+)'};
+    if(!p.dct || p.dct === CFG_MATRIX.cooling[cfg.coolingId]?.label) p.dct = _dctMap[_band.id]||'Enterprise';
+    // Timeline from stage weeks
+    if(!p.tline) {
+      const _totalWeeks = cfg.stages.reduce((sum,sid)=>{
+        const sm = CFG_MATRIX.stages[sid];
+        return sum + (cfg.durations[sid]||sm?.weeks||0);
+      },0);
+      if(_totalWeeks) p.tline = String(_totalWeeks);
+    }
+    // Bid manager = current logged-in user
+    if(!p.bmgr && currentProfile?.name) p.bmgr = currentProfile.name;
+    // Fee currency from current selection
+    if(!p.feecur) p.feecur = curCode||'GBP';
   }
 }
 
@@ -5435,10 +5467,20 @@ function loadProject(id,cardEl){
 
   // Populate overview — data persists from PROJECTS object
   setV('ovref',p.ref);setV('ovtitle',p.name);setV('ovloc',p.loc||'');
+  // Auto-set bid manager if blank and we know the current user
+  if(!p.bmgr && currentProfile?.name) {
+    p.bmgr = currentProfile.name;
+  }
   setV('ovlmgr',p.lmgr||'');setV('ovsrc',p.src||'');
   setNum('ovmw',p.mw||'');setNum('ovit',p.it||'');
   setV('ovclient',p.client||'');setV('ovcrole',p.crole||'');
   setV('ovcemail',p.cemail||'');setV('ovcphone',p.cphone||'');
+  // Set phone country code
+  const _ccEl = document.getElementById('ovcc');
+  if(_ccEl && p.cc) {
+    _ccEl.value = p.cc;
+    if(!_ccEl.value) _ccEl.value = '+971'; // fallback
+  }
   setV('ovcc',p.cc||'+971');
   setTxt('ovbrief',p.brief||'');
   setV('ovdct',p.dct||'');setV('ovbtype',p.btype||'');setV('ovrtype',p.rtype||'');
