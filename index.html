@@ -2508,6 +2508,7 @@ async function cfgCreateProject(cfg) {
   PIPE[newId]    = {stage:'Opportunity', attempts:0, closedReason:null, qualScore:null};
   // Note: Opportunity maps to rank 3 — ref field editable, cover page accessible after PPA code entered
   PER_PROJ[newId] = {};
+  getPS(newId); // initialise full defaults (selStages as Set, subConsultants [], etc)
   placeCard(newId);
   return newId;
 }
@@ -6140,19 +6141,10 @@ function renderCoverPage(id){
       <div class="f"><label>Total duration</label><div class="ro" id="totdur-${id}">—</div></div>
       <div class="f"><label>Est. completion</label><div class="ro" id="estend-${id}">—</div></div>
     </div>
-    <div class="sh"><span class="sdot" style="background:var(--blue)"></span>Billing</div>
-    <div class="fg2">
-      <div class="f"><label>Rate type</label>
-        <select id="cvrtype-${id}" onchange="setCvRateType('${id}',this.value)">
-          ${[['','Select...'],['Standard bid rate (2024)','Standard bid rate (2024)'],['Framework rate (2024)','Framework rate (2024)'],['Negotiated','Negotiated']].map(([v,l])=>'<option value="'+v+'"'+(PROJECTS[id]?.rtype===v?' selected':'')+'>'+l+'</option>').join('')}
-        </select></div>
-      <div class="f"><label>Currency</label>
-        <select id="cvcur-${id}" onchange="setCurFromCover(this.value)">
-          ${['GBP','AED','SAR','EUR','USD'].map(c=>`<option value="${c}"${ps.currency===c?' selected':''}>${c}</option>`).join('')}
-        </select></div>
-      <div class="f" style="grid-column:span 2"><label>Sub-consultants</label>
-        <div id="cv-subconsult-wrap-${id}" style="margin-top:4px"></div></div>
+    <div class="sh"><span class="sdot" style="background:var(--teal)"></span>Sub-consultants
+      <span style="font-size:10px;font-family:var(--fm);color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">Pre-selected from band — toggle to adjust</span>
     </div>
+    <div id="cv-subconsult-wrap-${id}" style="margin-top:4px;margin-bottom:4px"></div>
     <div class="sh" style="margin-top:18px"><span class="sdot" style="background:var(--purple)"></span>Scope of services
       <span style="font-size:10px;font-family:var(--fm);color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">Defaults from stage selection — override any item or add custom deliverables</span>
     </div>
