@@ -1677,6 +1677,33 @@ const HARDCODED_MATRIX = {
     // CFD rates
     cfd_rate_lead:96.05, cfd_rate_junior:82.13,
   },
+  subconsultDefaults:{
+    A:['Architecture','Fire & Life Safety'],
+    B:['Architecture','Structural & Civil','Fire & Life Safety','Security / ICT / AV'],
+    C:['Architecture','Structural & Civil','Fire & Life Safety','Security / ICT / AV','Acoustics'],
+    D:['Architecture','Structural & Civil','Fire & Life Safety','Security / ICT / AV','Acoustics','Flood Risk'],
+  },
+  scopeRules:[
+    {condition:'mech_only', item_id:'mep_pwr_sch',        state:'EXCL'},
+    {condition:'mech_only', item_id:'mep_ups_calc',        state:'EXCL'},
+    {condition:'mech_only', item_id:'mep_disc_arc',        state:'EXCL'},
+    {condition:'mech_only', item_id:'mep_cable',           state:'EXCL'},
+    {condition:'mech_only', item_id:'mep_lighting',        state:'EXCL'},
+    {condition:'elec_only', item_id:'mep_cool_sch',        state:'EXCL'},
+    {condition:'elec_only', item_id:'mep_fuel',            state:'EXCL'},
+    {condition:'elec_only', item_id:'mep_crit_layout',     state:'EXCL'},
+    {condition:'elec_only', item_id:'mep_noncrit_layout',  state:'EXCL'},
+    {condition:'cfd_off',   item_id:'cfd_ext',             state:'EXCL'},
+    {condition:'cfd_off',   item_id:'cfd_int',             state:'EXCL'},
+    {condition:'band_a',    item_id:'mep_pv',              state:'EXCL'},
+    {condition:'band_a',    item_id:'mep_disc_arc',        state:'EXCL'},
+    {condition:'band_a',    item_id:'strct_gantry',        state:'EXCL'},
+    {condition:'band_d',    item_id:'mep_pv',              state:'Y'},
+    {condition:'band_d',    item_id:'mep_disc_arc',        state:'Y'},
+    {condition:'dlc_cooling',item_id:'mep_bms',            state:'Y'},
+    {condition:'dlc_cooling',item_id:'mep_soo',            state:'Y'},
+    {condition:'evap_cooling',item_id:'mep_bms',           state:'Y'},
+  ],
 };
 
 let CFG_MATRIX = HARDCODED_MATRIX;
@@ -1685,12 +1712,14 @@ window._matrixLoaded = false;
 // ── 2. LOAD MATRIX FROM SUPABASE ─────────────────────────────
 async function loadMatrix() {
   try {
-    const [rBands, rStages, rCooling, rCfd, rSettings] = await Promise.all([
+    const [rBands, rStages, rCooling, rCfd, rSettings, rSubconsult, rScopeRules] = await Promise.all([
       supa.from('dc_bands').select('*').order('sort_order'),
       supa.from('dc_stages').select('*').order('sort_order'),
       supa.from('dc_cooling').select('*').order('sort_order'),
       supa.from('dc_cfd_stages').select('*'),
       supa.from('dc_settings').select('*'),
+      supa.from('dc_subconsult_defaults').select('*').order('band_id').order('sort_order'),
+      supa.from('dc_scope_rules').select('*'),
     ]);
     if(rBands.error||rStages.error||rCooling.error||rCfd.error||rSettings.error) throw new Error('Matrix fetch error');
 
@@ -1718,7 +1747,24 @@ async function loadMatrix() {
     const sDefaults = HARDCODED_MATRIX.settings;
     Object.keys(sDefaults).forEach(k=>{ if(settings[k]===undefined) settings[k]=sDefaults[k]; });
 
-    CFG_MATRIX = {bands,stages,cooling,cfdStages,settings};
+    // Build subconsultDefaults: {A:[...], B:[...], C:[...], D:[...]}
+    const subconsultDefaults = {};
+    if(rSubconsult.data && !rSubconsult.error) {
+      rSubconsult.data.forEach(r=>{
+        if(!subconsultDefaults[r.band_id]) subconsultDefaults[r.band_id] = [];
+        subconsultDefaults[r.band_id].push(r.discipline);
+      });
+    }
+    // Fall back to hardcoded if table empty or missing
+    const sdFallback = HARDCODED_MATRIX.subconsultDefaults;
+    Object.keys(sdFallback).forEach(k=>{ if(!subconsultDefaults[k]) subconsultDefaults[k]=sdFallback[k]; });
+
+    // Build scopeRules: [{condition, item_id, state}, ...]
+    const scopeRules = (rScopeRules.data && !rScopeRules.error)
+      ? rScopeRules.data.map(r=>({condition:r.condition, item_id:r.item_id, state:r.state}))
+      : HARDCODED_MATRIX.scopeRules;
+
+    CFG_MATRIX = {bands,stages,cooling,cfdStages,settings,subconsultDefaults,scopeRules};
     window._matrixLoaded = true;
   } catch(e) {
     console.warn('[Matrix] Load failed — using hardcoded fallback:', e.message);
@@ -2469,67 +2515,51 @@ async function cfgCreateProject(cfg) {
 // Pure function: takes wizard cfg, returns scopeConfig overrides object
 // Keys: "item_id:stageNum" → 'Y' | 'N' | 'EXCL'
 // Only sets items that deviate from the DELIVERABLES default state
+
+// ── SUB-CONSULTANT DEFAULTS BY BAND ─────────────────────────
+// Returns array of discipline names to pre-select as sub-consultants
+// Based on band, scopeId and project characteristics
+function cfgSubConsultDefaults(cfg) {
+  const m    = CFG_MATRIX;
+  const band = m.bands.find(b=>cfg.itLoad>=b.min&&cfg.itLoad<b.max)||m.bands[m.bands.length-1];
+  // Read from matrix (Supabase or hardcoded fallback)
+  const defaults = m.subconsultDefaults || HARDCODED_MATRIX.subconsultDefaults;
+  return [...(defaults[band.id] || defaults['B'] || [])];
+}
+
 function cfgScopeDefaults(cfg) {
   const sc = {};
-  const m = CFG_MATRIX;
+  const m    = CFG_MATRIX;
   const band = m.bands.find(b=>cfg.itLoad>=b.min&&cfg.itLoad<b.max)||m.bands[m.bands.length-1];
-
-  // Stage number mapping (wizard IDs → RIBA integers used by DELIVERABLES)
+  const rules = m.scopeRules || HARDCODED_MATRIX.scopeRules;
   const toRiba = {S1:1, TF:1, S2:2, S3:3, S4:4, S5:5};
+
+  // Derive active conditions from wizard config
+  const isDLC  = cfg.coolingId && cfg.coolingId.startsWith('dlc');
+  const isEvap = cfg.coolingId === 'evap';
+  const activeConditions = new Set([
+    cfg.scopeId === 'mech_only' ? 'mech_only' : null,
+    cfg.scopeId === 'elec_only' ? 'elec_only' : null,
+    !cfg.cfdEnabled             ? 'cfd_off'   : null,
+    'band_'+band.id.toLowerCase(),
+    isDLC  ? 'dlc_cooling'  : null,
+    isEvap ? 'evap_cooling' : null,
+  ].filter(Boolean));
 
   cfg.stages.forEach(sid => {
     const stgNum = toRiba[sid];
     if(!stgNum) return;
 
-    // ── MEP scope filtering ─────────────────────────────────────
-    // Electrical-only deliverables suppressed when mech_only
-    const elecOnlyItems = [
-      'mep_pwr_sch','mep_ups_calc','mep_disc_arc','mep_cable','mep_lighting'
-    ];
-    // Mechanical-only deliverables suppressed when elec_only
-    const mechOnlyItems = [
-      'mep_cool_sch','mep_fuel','mep_crit_layout','mep_noncrit_layout'
-    ];
-    if(cfg.scopeId === 'mech_only') {
-      elecOnlyItems.forEach(id => { sc[id+':'+stgNum] = 'EXCL'; });
-    }
-    if(cfg.scopeId === 'elec_only') {
-      mechOnlyItems.forEach(id => { sc[id+':'+stgNum] = 'EXCL'; });
-    }
+    // Apply all matching rules for this stage
+    rules.forEach(rule => {
+      if(!activeConditions.has(rule.condition)) return;
+      sc[rule.item_id + ':' + stgNum] = rule.state;
+    });
 
-    // ── CFD scope defaults ──────────────────────────────────────
-    // CFD Analysis items default to included if cfdEnabled
+    // CFD enabled — explicitly include at the right stages
     if(cfg.cfdEnabled) {
-      if(stgNum === 3) sc['cfd_ext:'+stgNum] = 'Y';  // external at SD
-      if(stgNum === 4) { sc['cfd_ext:'+stgNum] = 'Y'; sc['cfd_int:'+stgNum] = 'Y'; } // both at DD
-    } else {
-      // CFD disabled — exclude both
-      sc['cfd_ext:'+stgNum] = 'EXCL';
-      sc['cfd_int:'+stgNum] = 'EXCL';
-    }
-
-    // ── Band-based suppressions ──────────────────────────────────
-    // Band A (Edge / micro) — suppress hyperscale-scale items
-    if(band.id === 'A') {
-      const hyperscaleOnly = ['mep_pv','mep_disc_arc','strct_gantry'];
-      hyperscaleOnly.forEach(id => { sc[id+':'+stgNum] = 'EXCL'; });
-    }
-    // Band D (Hyperscale) — explicitly include large-scale items
-    if(band.id === 'D') {
-      const hyperscaleInclude = ['mep_pv','mep_disc_arc'];
-      hyperscaleInclude.forEach(id => { sc[id+':'+stgNum] = 'Y'; });
-    }
-
-    // ── Cooling-specific items ───────────────────────────────────
-    // DLC cooling — additional BMS/controls scope
-    const isDLC = cfg.coolingId && cfg.coolingId.startsWith('dlc');
-    if(isDLC && stgNum >= 3) {
-      sc['mep_bms:'+stgNum] = 'Y';
-      sc['mep_soo:'+stgNum] = 'Y';
-    }
-    // Evaporative — PH uplift flag already in matrix; BMS always in scope
-    if(cfg.coolingId === 'evap' && stgNum >= 3) {
-      sc['mep_bms:'+stgNum] = 'Y';
+      if(stgNum === 3) sc['cfd_ext:'+stgNum] = 'Y';
+      if(stgNum === 4) { sc['cfd_ext:'+stgNum] = 'Y'; sc['cfd_int:'+stgNum] = 'Y'; }
     }
   });
 
@@ -2549,7 +2579,7 @@ function cfgApplyHours(projectId, result, cfg) {
   ps.activeStages = new Set(cfg.stages);
   // Map wizard stage IDs to cover page stage numbers
   const _wizardToRiba = {S1:'1',TF:'1',S2:'2',S3:'3',S4:'4',S5:'5'};
-  const _wizardToUK   = {S2:'cd',S3:'sd',S4:'dd'};
+  const _wizardToUK   = {S1:'brief',TF:'tf',S2:'cd',S3:'sd',S4:'dd',S5:'ca'};
   const isUKfw = (cfg.framework === 'code' || cfg.framework === 'uk');
   if(isUKfw) {
     ps.stageFramework = 'uk';
@@ -2573,6 +2603,11 @@ function cfgApplyHours(projectId, result, cfg) {
   // Only apply defaults if this is a fresh generate (don't overwrite LM edits)
   if(Object.keys(ps.scopeConfig).length === 0) {
     ps.scopeConfig = scopeDefaults;
+  }
+
+  // Sub-consultant defaults from band (only on fresh generate)
+  if(!ps.subConsultants || ps.subConsultants.length === 0) {
+    ps.subConsultants = cfgSubConsultDefaults(cfg);
   }
 
   // Store wizard config for fee calculator and programme reference
@@ -2988,13 +3023,15 @@ function getPS(id){
 
 // UK stage framework (CD/SD/DD/IFC)
 const UK_STAGES=[
-  {num:'cd',label:'CD',name:'Concept Design',wks:8,color:'#9b8df8'},
-  {num:'sd',label:'SD',name:'Schematic Design',wks:12,color:'#f5a623'},
-  {num:'dd',label:'DD',name:'Detailed Design',wks:12,color:'#f05a4f'},
-  {num:'ifc',label:'IFC',name:'Issued for Construction',wks:8,color:'#8dc63f'},
+  {num:'brief',label:'Brief',name:'Brief Definition',wks:4, color:'#b0b0b0'},
+  {num:'tf',   label:'TF',   name:'Test Fit',        wks:4, color:'#c8a0f0'},
+  {num:'cd',   label:'CD',   name:'Concept Design',  wks:8, color:'#9b8df8'},
+  {num:'sd',   label:'SD',   name:'Schematic Design',wks:12,color:'#f5a623'},
+  {num:'dd',   label:'DD',   name:'Developed Design', wks:2, color:'#f05a4f'},
+  {num:'ca',   label:'CA',   name:'Construction Administration',wks:0,   color:'#8dc63f'},
 ];
-// Map UK stage labels to nearest RIBA num for deliverable stage-dot display
-const UK_TO_RIBA={cd:2,sd:3,dd:4,ifc:5};
+// Map UK stage codes → nearest RIBA stage number (for DELIVERABLES matrix lookup)
+const UK_TO_RIBA={brief:1,tf:1,cd:2,sd:3,dd:4,ca:5};
 
 // ── Central stage resolver — always use this instead of RIBA.filter directly
 function getActiveStages(id){
@@ -6380,10 +6417,14 @@ function resetScope(id){
 
 function onStartDate(id,val){const ps=getPS(id);ps.startDate=val;updateDur(id);}
 function setFramework(id,fw){
-  const ps=getPS(id);ps.stageFramework=fw;
-  // Reset stage selection to sensible defaults for the new framework
-  if(fw==='riba'){ps.selStages=new Set(['2','3','4']);}
-  else{ps.selStages=new Set(['cd','sd','dd']);}
+  const ps=getPS(id);
+  const wasFramework = ps.stageFramework;
+  ps.stageFramework = fw;
+  // Only reset selStages if the framework actually changed (don't wipe wizard selection)
+  if(wasFramework !== fw || ps.selStages.size === 0) {
+    if(fw==='riba') ps.selStages=new Set(['2','3','4']);
+    else            ps.selStages=new Set(['cd','sd','dd']);
+  }
   renderCoverPage(id);
 }
 
@@ -6392,7 +6433,7 @@ function buildStageGrid(id){
   const wrap=document.getElementById('stage-grid-wrap-'+id);if(!wrap)return;
   if(ps.stageFramework==='uk'){
     // UK grid: CD / SD / DD / IFC
-    wrap.innerHTML=`<div class="riba-grid" style="grid-template-columns:repeat(4,1fr)" id="uk-grid-${id}"></div>`;
+    wrap.innerHTML=`<div class="riba-grid" style="grid-template-columns:repeat(${UK_STAGES.length},1fr)" id="uk-grid-${id}"></div>`;
     const g=document.getElementById('uk-grid-'+id);
     UK_STAGES.forEach(s=>{
       const on=ps.selStages.has(s.num);
