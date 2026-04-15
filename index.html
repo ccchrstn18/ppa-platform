@@ -1190,13 +1190,20 @@ async function saveProjectToSupabase(id){
     setSyncStatus('saving');
     try {
       const [pRow, pipeRow, stRow] = [projectToRow(id), pipeToRow(id), stateToRow(id)];
-      const ops = [];
-      if(pRow)    ops.push(supa.from('projects').upsert(pRow));
-      if(pipeRow) ops.push(supa.from('pipeline').upsert(pipeRow));
-      if(stRow)   ops.push(supa.from('project_state').upsert(stRow));
-      const results = await Promise.all(ops);
-      const err = results.find(r => r.error);
-      if(err) throw new Error(err.error.message);
+      // Save projects FIRST — pipeline and project_state have FK dependency on projects
+      if(pRow) {
+        const r1 = await supa.from('projects').upsert(pRow);
+        if(r1.error) throw new Error(r1.error.message);
+      }
+      // Then save pipeline and state in parallel (both depend on projects)
+      const depOps = [];
+      if(pipeRow) depOps.push(supa.from('pipeline').upsert(pipeRow));
+      if(stRow)   depOps.push(supa.from('project_state').upsert(stRow));
+      if(depOps.length) {
+        const results = await Promise.all(depOps);
+        const err = results.find(r => r.error);
+        if(err) throw new Error(err.error.message);
+      }
       setSyncStatus('idle');
     } catch(e) {
       console.error('Supabase save error:', e);
@@ -1547,7 +1554,7 @@ function openDeadlinesModal(type){
   });
   items.sort((a,b)=>a.daysAway-b.daysAway);
 
-  const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)',
+  const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)','Opportunity':'var(--blue)',
     'Information Pending':'var(--blue)','Qualified':'var(--accent2)','In Assessment':'var(--accent2)',
     'Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
 
@@ -2353,6 +2360,7 @@ async function cfgCreateProject(cfg) {
     region: currentProfile?.region||'EMEA',
   };
   PIPE[newId]    = {stage:'Opportunity', attempts:0, closedReason:null, qualScore:null};
+  // Note: Opportunity maps to rank 3 — ref field editable, cover page accessible after PPA code entered
   PER_PROJ[newId] = {};
   placeCard(newId);
   return newId;
@@ -2412,19 +2420,27 @@ function cfgShowCompletionBanner(projectId) {
   banner.style.cssText = 'margin:0 0 14px;padding:12px 14px;background:rgba(141,198,63,.08);border:1px solid rgba(141,198,63,.3);border-radius:8px';
   banner.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:700;color:var(--accent)">⚡ Fee estimate generated</div>
+      <div style="font-size:12px;font-weight:700;color:var(--accent)">⚡ Fee estimate generated — complete these steps to unlock the proposal</div>
       <button onclick="document.getElementById('cfg-completion-banner').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0;line-height:1">✕</button>
     </div>
-    <div style="font-size:10px;font-family:var(--fm);color:var(--text2);margin-bottom:8px">Complete these fields to unlock the proposal:</div>
+    <div style="font-size:11px;font-family:var(--fm);color:var(--text2);margin-bottom:10px;line-height:1.5">
+      <strong>1.</strong> Enter a real PPA project code in the <strong>Reference</strong> field below (e.g. PPA260900) — this unlocks the Cover page.<br/>
+      <strong>2.</strong> Select a <strong>Lead Source</strong> from the dropdown.<br/>
+      <strong>3.</strong> Then work through each tab in order: Cover page → Role selection → Fee calculator → Programme → Proposal Summary.
+    </div>
+    <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-bottom:8px;padding-top:6px;border-top:1px solid rgba(141,198,63,.2)">Remaining required fields:</div>
     ${missing.map(m=>`
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer" onclick="document.getElementById('${m.field}')?.focus()">
         <span style="width:8px;height:8px;border-radius:50%;background:var(--border2);flex-shrink:0;display:inline-block"></span>
         <span style="font-size:11px;font-family:var(--fm);color:var(--text2)">${m.label}</span>
       </div>`).join('')}`;
 
-  // Insert at top of overview panel
+  // Insert at top of overview panel and scroll into view
   const ovPanel = document.getElementById('tp-ov');
-  if(ovPanel) ovPanel.insertBefore(banner, ovPanel.firstChild);
+  if(ovPanel) {
+    ovPanel.insertBefore(banner, ovPanel.firstChild);
+    setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'start'}), 100);
+  }
 }
 
 
@@ -2695,7 +2711,7 @@ const SUB_DISC_NAMES={
   'MEP':'MEP Services',
   'CFD Analysis':'CFD Analysis Services',
 };
-const STAGE_RANK={'New Lead':0,'Att. to contact':1,'Contacted':2,'Information Pending':2,'Qualified':3,'In Assessment':3,'Proposal':4,'Negotiation':4.5,'Live':5,'On Hold':6,'Closed Lead':99};
+const STAGE_RANK={'New Lead':0,'Att. to contact':1,'Contacted':2,'Information Pending':2,'Qualified':3,'In Assessment':3,'Opportunity':3,'Proposal':4,'Negotiation':4.5,'Live':5,'On Hold':6,'Closed Lead':99};
 function rank(s){return STAGE_RANK[s]??0;}
 
 // ══ STATE ══════════════════════════════════════════════════
@@ -4499,7 +4515,7 @@ function renderSalesDashboard(){
 
     // 2. Forecast summary + Pipeline by stage (TOP)
     const stageOrder=['New Lead','Att. to contact','Contacted','Information Pending','Qualified','In Assessment','Proposal','Negotiation','Live','Closed Lead'];
-    const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)',
+    const stageColors={'New Lead':'var(--text3)','Att. to contact':'var(--blue)','Contacted':'var(--blue)','Opportunity':'var(--blue)',
       'Information Pending':'var(--blue)','Qualified':'var(--accent2)','In Assessment':'var(--accent2)',
       'Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
     const stageFees={},stageCount={};
@@ -5253,7 +5269,7 @@ function updateColCounts(){
 }
 
 // ══ CARD RENDERING ═════════════════════════════════════════
-const COL_MAP={'New Lead':'cnew','Att. to contact':'cnew','Contacted':'cct','Information Pending':'cct','Qualified':'cop','In Assessment':'cop','Proposal':'cpr','Negotiation':'cng','Live':'clv','On Hold':'ccl','Closed Lead':'ccl'};
+const COL_MAP={'New Lead':'cnew','Att. to contact':'cnew','Contacted':'cct','Information Pending':'cct','Qualified':'cop','In Assessment':'cop','Opportunity':'cop','Proposal':'cpr','Negotiation':'cng','Live':'clv','On Hold':'ccl','Closed Lead':'ccl'};
 const PROG_COL={'New Lead':'','Att. to contact':'c-amber','Contacted':'c-blue','Information Pending':'c-amber','Qualified':'c-green','In Assessment':'c-green','Proposal':'c-purple','Negotiation':'c-purple','Live':'c-green','On Hold':'c-amber','Closed Lead':'c-red'};
 const PROG_PCT={'New Lead':5,'Att. to contact':20,'Contacted':35,'Information Pending':30,'Qualified':55,'In Assessment':60,'Proposal':80,'Negotiation':88,'Live':95,'On Hold':45,'Closed Lead':100};
 
