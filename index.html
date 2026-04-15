@@ -619,7 +619,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
 
 <!-- DC PROPOSAL CONFIGURATOR MODAL -->
 <div class="modal-ov" id="cfg-modal" style="display:none" onclick="if(event.target===this)closeCfgModal()">
-  <div id="cfg-box" style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:0;max-width:720px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 40px var(--sh)">
+  <div id="cfg-box" style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:0;max-width:1000px;width:96%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 40px var(--sh)">
 
     <!-- Header -->
     <div style="padding:18px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
@@ -1622,12 +1622,12 @@ const HARDCODED_MATRIX = {
     {id:'D',label:'Hyperscale',        min:50, max:999,scale:1.80},
   ],
   stages:{
-    'S1': {pct:0.09,engPct:0.82,bimPct:0.18,weeks:4,  labelRiba:'RIBA 1 — Defining Brief',   labelCode:'Brief'},
-    'S2': {pct:0.32,engPct:0.78,bimPct:0.22,weeks:8,  labelRiba:'RIBA 2 — Concept Design',   labelCode:'CD — Concept Design'},
-    'S3': {pct:0.64,engPct:0.75,bimPct:0.25,weeks:10, labelRiba:'RIBA 3 — Spatial Coord.',   labelCode:'SD — Scheme Design'},
-    'S4': {pct:1.00,engPct:0.72,bimPct:0.28,weeks:2,  labelRiba:'RIBA 4 — Technical Design', labelCode:'DD — Detailed Design'},
-    'IFC':{pct:0.08,engPct:0.52,bimPct:0.48,weeks:null,labelRiba:'IFC',                      labelCode:'IFC'},
-    'S5': {pct:0.12,engPct:0.60,bimPct:0.40,weeks:null,labelRiba:'RIBA 5 — Construction',    labelCode:'CA — Construction Admin'},
+    'S1': {pct:0.09,engPct:0.82,bimPct:0.18,weeks:4,  labelRiba:'RIBA 1 — Defining Brief',      labelCode:'Brief Definition'},
+    'TF': {pct:0.12,engPct:0.80,bimPct:0.20,weeks:4,  labelRiba:'RIBA 1+ — Test Fit',           labelCode:'Test Fit'},
+    'S2': {pct:0.32,engPct:0.78,bimPct:0.22,weeks:8,  labelRiba:'RIBA 2 — Concept Design',      labelCode:'Concept Design'},
+    'S3': {pct:0.64,engPct:0.75,bimPct:0.25,weeks:10, labelRiba:'RIBA 3 — Spatial Coordination', labelCode:'Schematic Design'},
+    'S4': {pct:1.00,engPct:0.72,bimPct:0.28,weeks:2,  labelRiba:'RIBA 4 — Technical Design / IFC',labelCode:'Developed Design / IFC'},
+    'S5': {pct:0.12,engPct:0.60,bimPct:0.40,weeks:null,labelRiba:'RIBA 5 — Construction Admin',  labelCode:'Construction Administration'},
   },
   cooling:{
     'air':       {label:'Air-cooled (CRAC/CRAH)',       mechMult:1.00,phUplift:false},
@@ -1641,10 +1641,10 @@ const HARDCODED_MATRIX = {
   },
   cfdStages:{
     'S1': null,
+    'TF': null,
     'S2': {ext:true,  int:false},
     'S3': {ext:true,  int:true},
     'S4': {ext:true,  int:true},
-    'IFC':null,
     'S5': null,
   },
   settings:{
@@ -2087,7 +2087,7 @@ function cfgUpdateBand(v) {
 function cfgStep2(body, sub) {
   sub.textContent = 'Step 2 of 4 — Stages in scope';
   const fr = _cfg.framework;
-  const stageOrder = ['S1','S2','S3','S4','IFC','S5'];
+  const stageOrder = ['S1','TF','S2','S3','S4','S5'];
 
   const rows = stageOrder.map(sid=>{
     const sm  = CFG_MATRIX.stages[sid];
@@ -2339,7 +2339,9 @@ async function cfgCreateProject(cfg) {
   if(cfg.mode==='existing') return cfg.projectId;
 
   const lm  = cfg.lmgr||'';
-  const ref = generateRef ? generateRef(lm) : 'PPa-NEW-'+Date.now();
+  // Generate placeholder ref — LM replaces with real PPA code before proposal
+  const initials = (lm||'').split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2)||'XX';
+  const ref = 'PPa-CFG-' + initials + '-' + Date.now().toString().slice(-6);
   const name = cfg.title + (cfg.building ? ` — ${cfg.building}` : '');
   const newId = 'cfg-'+Date.now();
 
