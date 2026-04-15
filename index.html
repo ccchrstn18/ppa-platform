@@ -856,7 +856,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
               <div class="fg2">
                 <div class="f" style="grid-column:1/-1">
                   <label id="ovref-label">Reference</label>
-                  <input id="ovref" class="ro" readonly oninput="mu();updateRefHint()" 
+                  <input id="ovref" class="ro" readonly oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');mu();updateRefHint()" 
                     style="font-family:var(--fm);font-weight:600" placeholder="e.g. PPA260798"/>
                   <div id="ovref-hint" style="font-size:10px;margin-top:3px;display:none"></div>
                 </div>
@@ -1086,6 +1086,7 @@ function stateToRow(id){
     role_qty:     ps.roleQty   || {},
     sub_consultants: ps.subConsultants || [],
     sub_fees:     ps.subFees   || {},
+    wizard_cfg:   ps.wizardCfg  || null,
     review_wks:   ps.reviewWks || {},
     security_mode: ps.securityMode || 'inhouse',
     milestones:   ps.milestones || [],
@@ -1140,6 +1141,7 @@ function rowToState(row){
     roleQty:     row.role_qty||{},
     subConsultants: row.sub_consultants||[],
     subFees:     row.sub_fees||{},
+    wizardCfg:   row.wizard_cfg||null,
     reviewWks:   row.review_wks||{},
     securityMode: row.security_mode||'inhouse',
     milestones:  row.milestones||[],
@@ -5663,7 +5665,28 @@ function loadProject(id,cardEl){
   const ps0_=getPS(id);
   if(!ps0_.stageFramework)ps0_.stageFramework='riba';
   if(!ps0_.customDeliverables)ps0_.customDeliverables=[];
-  if(!ps0_.subConsultants)ps0_.subConsultants=[];
+  // Recover sub-consultants from wizardCfg if empty after DB reload
+  if(!ps0_.subConsultants || ps0_.subConsultants.length === 0) {
+    if(ps0_.wizardCfg) {
+      ps0_.subConsultants = cfgSubConsultDefaults(ps0_.wizardCfg);
+    } else {
+      ps0_.subConsultants = [];
+    }
+  }
+  // Recover selStages from wizardCfg if empty after DB reload
+  if(ps0_.wizardCfg && (!ps0_.selStages || ps0_.selStages.size === 0)) {
+    const _wToRiba = {S1:'1',TF:'1',S2:'2',S3:'3',S4:'4',S5:'5'};
+    const _wToUK   = {S1:'brief',TF:'tf',S2:'cd',S3:'sd',S4:'dd',S5:'ca'};
+    const _wCfg = ps0_.wizardCfg;
+    const _isUK = (_wCfg.framework === 'code' || _wCfg.framework === 'uk');
+    if(_isUK) {
+      ps0_.stageFramework = 'uk';
+      ps0_.selStages = new Set((_wCfg.stages||[]).map(s=>_wToUK[s]).filter(Boolean));
+    } else {
+      ps0_.stageFramework = 'riba';
+      ps0_.selStages = new Set((_wCfg.stages||[]).map(s=>_wToRiba[s]).filter(Boolean));
+    }
+  }
   renderSubConsultWrap(id);
   // Restore this project's currency globally
   const ps0=getPS(id);
