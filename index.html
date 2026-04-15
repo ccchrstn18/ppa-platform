@@ -1043,7 +1043,7 @@ function projectToRow(id){
     loc:p.loc||null, mw:p.mw?parseFloat(p.mw):null,
     it:p.it?parseFloat(p.it):null, dct:p.dct||null,
     src:p.src||null, lmgr:p.lmgr||null, bmgr:p.bmgr||null,
-    btype:p.btype||null, rtype:p.rtype||null, client:p.client||null,
+    company:p.company||null, btype:p.btype||null, rtype:p.rtype||null, client:p.client||null,
     crole:p.crole||null, cemail:p.cemail||null, cphone:p.cphone||null,
     cc:p.cc||'+971', ddl:p.ddl||null,
     tline:p.tline?parseFloat(p.tline):null,
@@ -1098,7 +1098,7 @@ function rowToProject(row){
     region:row.region||'', loc:row.loc||'',
     mw:row.mw||'', it:row.it||'', dct:row.dct||'',
     src:row.src||'', lmgr:row.lmgr||'', bmgr:row.bmgr||'',
-    btype:row.btype||'', rtype:row.rtype||'',
+    company:row.company||'', btype:row.btype||'', rtype:row.rtype||'',
     client:row.client||'', crole:row.crole||'',
     cemail:row.cemail||'', cphone:row.cphone||'',
     cc:row.cc||'+971', ddl:row.ddl||'',
@@ -1822,7 +1822,8 @@ function calculateFeeEstimate(cfg) {
 const _cfgDefault = () => ({
   step:1, mode:'new', projectId:null,
   // Step 1
-  title:'', client:'', location:'', lmgr:'', building:'',
+  title:'', company:'', contactName:'', contactRole:'', contactEmail:'', contactPhone:'',
+  location:'', lmgr:'', building:'', src:'', brief:'',
   itLoad:null, coolingId:'air', scopeId:'full_mep', framework:'riba',
   // Step 2
   stages:[], durations:{},
@@ -1842,11 +1843,18 @@ function openCfgModal(mode='new', projectId=null) {
   if(mode==='existing' && projectId && PROJECTS[projectId]) {
     const p  = PROJECTS[projectId];
     const ps = getPS(projectId);
-    _cfg.itLoad    = parseFloat(p.it||p.mw||0)||null;
-    _cfg.framework = ps.stageFrame||'riba';
-    _cfg.coolingId = ps.coolingId||'air';
-    _cfg.scopeId   = ps.scopeId||'full_mep';
-    _cfg.lmgr      = p.lmgr||'';
+    _cfg.itLoad       = parseFloat(p.it||p.mw||0)||null;
+    _cfg.framework    = ps.stageFrame||'riba';
+    _cfg.coolingId    = ps.coolingId||'air';
+    _cfg.scopeId      = ps.scopeId||'full_mep';
+    _cfg.lmgr         = p.lmgr||'';
+    _cfg.company      = p.company||'';
+    _cfg.contactName  = p.client||'';
+    _cfg.contactRole  = p.crole||'';
+    _cfg.contactEmail = p.cemail||'';
+    _cfg.contactPhone = p.cphone||'';
+    _cfg.location     = p.loc||'';
+    _cfg.src          = p.src||'';
   } else {
     _cfg.lmgr = currentProfile?.name||'';
   }
@@ -1901,11 +1909,13 @@ function cfgShowError(msg) {
 function cfgValidateStep(step) {
   if(step===1) {
     const it = parseFloat(document.getElementById('cfg-it')?.value||0);
-    if(!it||it<=0) return 'Please enter a valid IT load in MW';
+    if(!it||it<=0) return 'Please enter a valid IT load (MW)';
     if(_cfg.mode==='new') {
-      if(!(document.getElementById('cfg-title')?.value||'').trim()) return 'Please enter a project title';
-      if(!(document.getElementById('cfg-client')?.value||'').trim()) return 'Please enter a client name';
-      if(!(document.getElementById('cfg-location')?.value||'').trim()) return 'Please enter a project location';
+      if(!(document.getElementById('cfg-title')?.value||'').trim())        return 'Please enter a project title';
+      if(!(document.getElementById('cfg-company')?.value||'').trim())      return 'Please enter the client organisation name';
+      if(!(document.getElementById('cfg-location')?.value||'').trim())     return 'Please enter a project location';
+      if(!(document.getElementById('cfg-src')?.value||''))                 return 'Please select a lead source';
+      if(!(document.getElementById('cfg-contact-name')?.value||'').trim()) return 'Please enter the client contact name';
     }
     return null;
   }
@@ -1925,11 +1935,16 @@ function cfgSaveStep(step) {
     _cfg.scopeId   = document.getElementById('cfg-scope')?.value||'full_mep';
     _cfg.framework = document.querySelector('input[name="cfg-frame"]:checked')?.value||'riba';
     if(_cfg.mode==='new') {
-      _cfg.title    = (document.getElementById('cfg-title')?.value||'').trim();
-      _cfg.client   = (document.getElementById('cfg-client')?.value||'').trim();
-      _cfg.location = (document.getElementById('cfg-location')?.value||'').trim();
-      _cfg.lmgr     = document.getElementById('cfg-lm')?.value||'';
-      _cfg.building = (document.getElementById('cfg-building')?.value||'').trim();
+      _cfg.title        = (document.getElementById('cfg-title')?.value||'').trim();
+      _cfg.company      = (document.getElementById('cfg-company')?.value||'').trim();
+      _cfg.location     = (document.getElementById('cfg-location')?.value||'').trim();
+      _cfg.lmgr         = document.getElementById('cfg-lm')?.value||'';
+      _cfg.src          = document.getElementById('cfg-src')?.value||'';
+      _cfg.building     = (document.getElementById('cfg-building')?.value||'').trim();
+      _cfg.contactName  = (document.getElementById('cfg-contact-name')?.value||'').trim();
+      _cfg.contactRole  = (document.getElementById('cfg-contact-role')?.value||'').trim();
+      _cfg.contactEmail = (document.getElementById('cfg-contact-email')?.value||'').trim();
+      _cfg.contactPhone = (document.getElementById('cfg-contact-phone')?.value||'').trim();
     }
   }
   if(step===2) {
@@ -1955,6 +1970,10 @@ function cfgSaveStep(step) {
       const int_ = parseFloat(document.getElementById('cfg-cfd-'+sid+'-int')?.value)||0;
       if(ext||int_) _cfg.cfdCosts[sid] = {ext, int:int_};
     });
+  }
+  if(step===4) {
+    const briefEl = document.getElementById('cfg-brief-text');
+    if(briefEl) _cfg.brief = briefEl.value.trim();
   }
 }
 
@@ -2001,33 +2020,84 @@ function cfgSel(id,options,selected) {
 }
 
 // ── 10. STEP 1 — Project Details ─────────────────────────────
+
+// ── BRIEF GENERATOR — pure function, no DOM ──────────────────
+function cfgGenerateBrief(cfg, band) {
+  const m        = CFG_MATRIX;
+  const cooling  = m.cooling[cfg.coolingId] || m.cooling['air'];
+  const scopeStr = cfg.scopeId === 'full_mep'  ? 'Full MEP (Mechanical + Electrical)'
+                 : cfg.scopeId === 'mech_only' ? 'Mechanical engineering'
+                 : 'Electrical engineering';
+  const stageLabels = cfg.stages.map(sid => {
+    const sm = m.stages[sid];
+    if(!sm) return sid;
+    return cfg.framework === 'code' ? sm.labelCode : sm.labelRiba;
+  });
+  const stageStr  = stageLabels.length > 1
+    ? stageLabels.slice(0,-1).join(', ') + ' and ' + stageLabels[stageLabels.length-1]
+    : stageLabels[0] || '';
+  const frameworkStr = cfg.framework === 'code' ? 'Middle East code stages' : 'RIBA Plan of Work';
+  const building  = cfg.building ? ` — ${cfg.building}` : '';
+  const company   = cfg.company  ? ` Client: ${cfg.company}.` : '';
+  return `${scopeStr} services for a Band ${band.id} ${band.label} data centre (${cfg.itLoad}MW IT load)${building}, located in ${cfg.location || 'TBC'}. Cooling architecture: ${cooling.label}. Scope covers ${stageStr} in accordance with ${frameworkStr}.${company}`;
+}
+
 function cfgStep1(body, sub) {
-  sub.textContent = 'Step 1 of 4 — Project details';
+  sub.textContent = 'Step 1 of 5 — Project & contact details';
 
   const lmOpts = [
     ['','Select LM...'],
     ['T. Ryan','T. Ryan'],['A. Tizard','A. Tizard'],['D. Watts','D. Watts'],
     ['J. Phillips','J. Phillips'],['B. Whitfield','B. Whitfield'],['J. Fox','J. Fox'],
   ];
+  const srcOpts = [
+    ['','Select source...'],
+    ['Direct client','Direct client'],['Framework','Framework'],
+    ['Referral','Referral'],['Tender portal','Tender portal'],
+    ['Conference / event','Conference / event'],['Repeat client','Repeat client'],
+  ];
 
-  const existingCard = _cfg.mode==='existing' && _cfg.projectId ? `
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 14px;margin-bottom:16px">
-      <div style="font-size:9px;font-family:var(--fm);color:var(--text3);margin-bottom:3px">Configuring fee estimate for</div>
-      <div style="font-size:13px;font-weight:700;color:var(--text)">${PROJECTS[_cfg.projectId]?.name||'—'}</div>
-      <div style="font-size:10px;font-family:var(--fm);color:var(--text3)">${PROJECTS[_cfg.projectId]?.ref||'—'}</div>
-    </div>` : '';
+  // Existing project — show read-only card, only DC config editable
+  const existingCard = _cfg.mode==='existing' && _cfg.projectId ? (() => {
+    const ep = PROJECTS[_cfg.projectId]||{};
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:9px;font-family:var(--fm);color:var(--text3);margin-bottom:4px">Configuring fee estimate for</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text)">${ep.name||'—'}</div>
+      <div style="display:flex;gap:12px;margin-top:4px;font-size:10px;font-family:var(--fm);color:var(--text3)">
+        <span>${ep.ref||'—'}</span>
+        ${ep.company?`<span>${ep.company}</span>`:''}
+        ${ep.client?`<span>${ep.client}</span>`:''}
+      </div>
+    </div>`;
+  })() : '';
 
+  // New project — full project context + contact block
   const newFields = _cfg.mode==='new' ? `
+    <div style="font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">Project context</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${cfgField('Project title <span style="color:var(--coral)">*</span>', cfgInp('cfg-title','text','e.g. NEOM Hyperscale DC — DC02',_cfg.title))}
-      ${cfgField('Client <span style="color:var(--coral)">*</span>', cfgInp('cfg-client','text','e.g. NEOM Company',_cfg.client))}
+      ${cfgField('Project title <span style="color:var(--coral)">*</span>', cfgInp('cfg-title','text','e.g. NEOM Hyperscale Campus',_cfg.title))}
+      ${cfgField('Building / Phase', cfgInp('cfg-building','text','e.g. DC02, Phase 1, Hall A',_cfg.building))}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${cfgField('Company / Client organisation <span style="color:var(--coral)">*</span>', cfgInp('cfg-company','text','e.g. NEOM Company',_cfg.company))}
       ${cfgField('Location <span style="color:var(--coral)">*</span>', cfgInp('cfg-location','text','e.g. NEOM, KSA',_cfg.location))}
-      ${cfgField('Lead Manager', cfgSel('cfg-lm',lmOpts,_cfg.lmgr))}
     </div>
-    ${cfgField('Building / Phase', cfgInp('cfg-building','text','e.g. DC02, Phase 1, Hall A',_cfg.building), 'Optional — appended to project name for phased campuses')}
-    <div style="height:1px;background:var(--border);margin:4px 0 16px"></div>` : '';
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${cfgField('Lead Manager', cfgSel('cfg-lm',lmOpts,_cfg.lmgr))}
+      ${cfgField('Lead Source <span style="color:var(--coral)">*</span>', cfgSel('cfg-src',srcOpts,_cfg.src))}
+    </div>
+    <div style="height:1px;background:var(--border);margin:6px 0 14px"></div>
+    <div style="font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">Client contact</div>
+    <div style="background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.15);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:10px;font-family:var(--fm);color:var(--text3)">The contact person who will receive the proposal. Required for the proposal summary.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${cfgField('Contact name <span style="color:var(--coral)">*</span>', cfgInp('cfg-contact-name','text','e.g. Mohammed Al Rashid',_cfg.contactName))}
+      ${cfgField('Contact role', cfgInp('cfg-contact-role','text','e.g. Head of Infrastructure',_cfg.contactRole))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${cfgField('Contact email', cfgInp('cfg-contact-email','email','e.g. m.alrashid@neom.com',_cfg.contactEmail))}
+      ${cfgField('Contact phone', cfgInp('cfg-contact-phone','tel','e.g. +966 50 xxx xxxx',_cfg.contactPhone))}
+    </div>
+    <div style="height:1px;background:var(--border);margin:6px 0 14px"></div>` : '';
 
   // Band indicator helper
   const band = _cfg.itLoad ? (CFG_MATRIX.bands.find(b=>_cfg.itLoad>=b.min&&_cfg.itLoad<b.max)||CFG_MATRIX.bands[CFG_MATRIX.bands.length-1]) : null;
@@ -2092,7 +2162,7 @@ function cfgUpdateBand(v) {
 
 // ── 11. STEP 2 — Stages ──────────────────────────────────────
 function cfgStep2(body, sub) {
-  sub.textContent = 'Step 2 of 4 — Stages in scope';
+  sub.textContent = 'Step 2 of 5 — Stages in scope';
   const fr = _cfg.framework;
   const stageOrder = ['S1','TF','S2','S3','S4','S5'];
 
@@ -2150,7 +2220,7 @@ function cfgToggleStage(labelEl, sid) {
 
 // ── 12. STEP 3 — CFD ─────────────────────────────────────────
 function cfgStep3(body, sub) {
-  sub.textContent = 'Step 3 of 4 — CFD costs';
+  sub.textContent = 'Step 3 of 5 — CFD costs';
 
   const cfdStages = _cfg.stages.filter(sid=>CFG_MATRIX.cfdStages[sid]);
   if(!cfdStages.length) {
@@ -2193,7 +2263,7 @@ function cfgStep3(body, sub) {
 
 // ── 13. STEP 4 — Review ──────────────────────────────────────
 function cfgStep4(body, sub) {
-  sub.textContent = 'Step 4 of 4 — Review & generate';
+  sub.textContent = 'Step 4 of 5 — Review & generate';
 
   // Run calculation and cache
   _cfg._preview = calculateFeeEstimate(_cfg);
@@ -2294,8 +2364,12 @@ function cfgStep4(body, sub) {
       </table>
     </div>
     ${phWarning}
-    <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:10px;font-family:var(--fm);color:var(--text3)">
-      Hours will be pre-populated in the fee calculator. You can edit any value manually after generation. A checklist will guide you through the remaining fields needed to unlock the proposal.
+    <div style="margin-top:14px">
+      <label style="font-size:9px;font-family:var(--fm);color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:600;display:block;margin-bottom:6px">Project brief <span style="font-weight:400;color:var(--text3)">(auto-generated — edit before generating)</span></label>
+      <textarea id="cfg-brief-text" rows="4" style="width:100%;padding:8px 10px;font-size:11px;font-family:var(--fm);background:var(--inp);border:1px solid var(--border2);border-radius:6px;color:var(--text);box-sizing:border-box;line-height:1.5;resize:vertical">${_cfg.brief || cfgGenerateBrief(_cfg, band)}</textarea>
+    </div>
+    <div style="margin-top:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:10px;font-family:var(--fm);color:var(--text3)">
+      Hours will be pre-populated in the fee calculator. You can edit any value manually after generation.
     </div>`;
 }
 
@@ -2354,9 +2428,18 @@ async function cfgCreateProject(cfg) {
 
   PROJECTS[newId] = {
     id:newId, ref, name, status:'Opportunity',
-    lmgr:lm, client:cfg.client, loc:cfg.location,
+    lmgr:lm,
+    company:cfg.company||'',
+    client:cfg.contactName||'',
+    crole:cfg.contactRole||'',
+    cemail:cfg.contactEmail||'',
+    cphone:cfg.contactPhone||'',
+    loc:cfg.location||'',
+    src:cfg.src||'',
     mw:String(cfg.itLoad||''), it:String(cfg.itLoad||''),
-    dct:'', src:'', efee:'', feecur:curCode,
+    dct:CFG_MATRIX.cooling[cfg.coolingId]?.label||'',
+    brief:cfg.brief||'',
+    efee:'', feecur:curCode,
     region: currentProfile?.region||'EMEA',
   };
   PIPE[newId]    = {stage:'Opportunity', attempts:0, closedReason:null, qualScore:null};
@@ -2390,56 +2473,75 @@ function cfgApplyCoversheet(projectId, cfg) {
   ps.stageFrame = cfg.framework;
   ps.coolingId  = cfg.coolingId;
   ps.scopeId    = cfg.scopeId;
-  // Also update project fields
-  if(PROJECTS[projectId]) {
-    PROJECTS[projectId].it = String(cfg.itLoad||'');
-    PROJECTS[projectId].mw = String(cfg.itLoad||'');
-    if(cfg.coolingId) PROJECTS[projectId].dct = CFG_MATRIX.cooling[cfg.coolingId]?.label||'';
+  const p = PROJECTS[projectId];
+  if(p) {
+    // DC configuration
+    p.it  = String(cfg.itLoad||'');
+    p.mw  = String(cfg.itLoad||'');
+    p.dct = CFG_MATRIX.cooling[cfg.coolingId]?.label||'';
+    // Project context (new projects only — don't overwrite existing data)
+    if(cfg.mode==='new') {
+      p.company = cfg.company  || p.company  || '';
+      p.client  = cfg.contactName  || p.client  || '';
+      p.crole   = cfg.contactRole  || p.crole   || '';
+      p.cemail  = cfg.contactEmail || p.cemail  || '';
+      p.cphone  = cfg.contactPhone || p.cphone  || '';
+      p.loc     = cfg.location || p.loc || '';
+      p.src     = cfg.src      || p.src || '';
+      p.lmgr    = cfg.lmgr     || p.lmgr || '';
+    }
+    // Brief — always write (was edited in step 4)
+    if(cfg.brief) p.brief = cfg.brief;
   }
 }
 
 function cfgShowCompletionBanner(projectId) {
-  const p  = PROJECTS[projectId];
-  const ps = getPS(projectId);
+  const p = PROJECTS[projectId];
   if(!p) return;
+  const gates = getTabGates(projectId);
 
-  // Check which fields still need completing
+  // Derive missing items from gates — single source of truth
   const missing = [];
-  if(!/^PPA\d{6,}$/.test((p.ref||'').trim())) missing.push({label:'Project reference (PPAxxxxxx)', field:'ovref'});
-  if(!p.ddl)    missing.push({label:'Bid deadline',   field:'ovddl'});
-  if(!p.src)    missing.push({label:'Lead source',    field:'ovsrc'});
-  if(!p.rtype)  missing.push({label:'Contract type',  field:'ovrtype'});
+  if(!hasRealPPACode(projectId))  missing.push({label:'Project reference — enter PPA code (e.g. PPA260798)', field:'ovref'});
+  if(!p.client)                   missing.push({label:'Contact name', field:'ovclient'});
+  if(!p.loc)                      missing.push({label:'Location', field:'ovloc'});
+  if(!p.src)                      missing.push({label:'Lead source', field:'ovsrc'});
+  if(!p.ddl)                      missing.push({label:'Bid deadline', field:'ovddl'});
+  if(!p.rtype)                    missing.push({label:'Contract type', field:'ovrtype'});
 
-  // Remove existing banner if any
   const existing = document.getElementById('cfg-completion-banner');
   if(existing) existing.remove();
   if(!missing.length) return;
 
+  const allDone = gates.coverPage;
   const banner = document.createElement('div');
   banner.id = 'cfg-completion-banner';
-  banner.style.cssText = 'margin:0 0 14px;padding:12px 14px;background:rgba(141,198,63,.08);border:1px solid rgba(141,198,63,.3);border-radius:8px';
+  banner.style.cssText = 'margin:0 0 16px;padding:14px 16px;background:rgba(141,198,63,.07);border:1px solid rgba(141,198,63,.25);border-radius:8px';
   banner.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:700;color:var(--accent)">⚡ Fee estimate generated — complete these steps to unlock the proposal</div>
-      <button onclick="document.getElementById('cfg-completion-banner').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0;line-height:1">✕</button>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px">Fee estimate generated</div>
+        <div style="font-size:11px;font-family:var(--fm);color:var(--text2);line-height:1.5">
+          Complete the fields below, then work through each tab in order:<br/>
+          <span style="color:var(--text3)">Cover page → Fee calculator → Programme → Proposal Summary</span>
+        </div>
+      </div>
+      <button onclick="document.getElementById('cfg-completion-banner').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 0 0 12px;line-height:1;flex-shrink:0">✕</button>
     </div>
-    <div style="font-size:11px;font-family:var(--fm);color:var(--text2);margin-bottom:10px;line-height:1.5">
-      <strong>1.</strong> Enter a real PPA project code in the <strong>Reference</strong> field below (e.g. PPA260900) — this unlocks the Cover page.<br/>
-      <strong>2.</strong> Select a <strong>Lead Source</strong> from the dropdown.<br/>
-      <strong>3.</strong> Then work through each tab in order: Cover page → Role selection → Fee calculator → Programme → Proposal Summary.
-    </div>
-    <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-bottom:8px;padding-top:6px;border-top:1px solid rgba(141,198,63,.2)">Remaining required fields:</div>
-    ${missing.map(m=>`
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer" onclick="document.getElementById('${m.field}')?.focus()">
-        <span style="width:8px;height:8px;border-radius:50%;background:var(--border2);flex-shrink:0;display:inline-block"></span>
-        <span style="font-size:11px;font-family:var(--fm);color:var(--text2)">${m.label}</span>
-      </div>`).join('')}`;
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${missing.map(m=>`
+        <div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 8px;background:var(--bg3);border-radius:5px"
+          onclick="document.getElementById('${m.field}')?.focus();document.getElementById('${m.field}')?.scrollIntoView({behavior:'smooth',block:'center'})">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:11px;font-family:var(--fm);color:var(--text2)">${m.label}</span>
+          <span style="font-size:10px;color:var(--text3);margin-left:auto">tap to fill</span>
+        </div>`).join('')}
+    </div>`;
 
-  // Insert at top of overview panel and scroll into view
   const ovPanel = document.getElementById('tp-ov');
   if(ovPanel) {
     ovPanel.insertBefore(banner, ovPanel.firstChild);
-    setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'start'}), 100);
+    setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'nearest'}), 150);
   }
 }
 
@@ -5510,69 +5612,79 @@ function updateRefHint(){
   }finally{_refHintBusy=false;}
 }
 
+
+// ══ UNIFIED GATE LOGIC ════════════════════════════════════════
+// Single authority on tab unlock state — all consumers call this
+function getTabGates(id) {
+  if(!id || !PROJECTS[id]) return {coverPage:false,feeCalc:false,programme:false,proposal:false,feeBtn:false,buildFeeBtn:false};
+  const p    = PROJECTS[id];
+  const pipe = getPipe(id);
+  const ps   = getPS(id);
+  const r    = rank(pipe.stage);
+  const hasCode    = hasRealPPACode(id);
+  const hasContact = !!(p.client && p.loc && p.src);
+  const isProposalStage = ['Proposal','Negotiation','Live'].includes(pipe.stage);
+  return {
+    coverPage:    r >= 2 && hasCode && hasContact,
+    roleSelect:   r >= 2 && hasCode && ps.cvVisited && !ps.feeExists,
+    feeCalc:      r >= 2 && ps.feeExists,
+    programme:    r >= 2 && ps.feeExists,
+    proposal:     r >= 2 && allTabsComplete(id),
+    feeBtn:       r >= 2 && r < 4 && !isProposalStage,
+    buildFeeBtn:  r >= 2 && ps.cvVisited && ps.selRoles.size > 0 && !ps.feeExists && !isProposalStage,
+    showSummary:  isProposalStage && !_inEditMode,
+  };
+}
+
 function renderTabs(id){
-  const pipe=getPipe(id);const r=rank(pipe.stage);const ps=getPS(id);
-  const hasFeeVals=feeHasValues(id);
+  const gates = getTabGates(id);
+  const ps    = getPS(id);
 
-  // Cover: Qualified+ AND has real PPA code
-  const _hasCode=hasRealPPACode(id);
-  setTabAccess('tab-cv','tp-cv',r>=3&&_hasCode,
-    r>=3&&!_hasCode
-      ? 'Update PPA Reference to project register code first (e.g. PPA260798)'
-      : 'Complete qualification checklist to unlock Cover page');
-  // Role: Cover visited AND fee not yet built
-  const rlTab=document.getElementById('tab-rl');
-  if(ps.feeExists){
-    rlTab.style.display='none';
+  // Tab access — driven entirely by getTabGates
+  setTabAccess('tab-cv','tp-cv',gates.coverPage,
+    hasRealPPACode(id)
+      ? 'Complete required fields (location, lead source) to unlock Cover page'
+      : 'Enter a real PPA project code (e.g. PPA260798) to unlock Cover page');
+  const rlTab = document.getElementById('tab-rl');
+  if(ps.feeExists) {
+    rlTab.style.display = 'none';
   } else {
-    rlTab.style.display='';
-    setTabAccess('tab-rl','tp-rl',r>=3&&ps.cvVisited,'Visit Cover page tab first');
+    rlTab.style.display = '';
+    setTabAccess('tab-rl','tp-rl',gates.roleSelect,'Visit Cover page tab first');
   }
-  // Fee: only unlocked after Build Fee Calculator was clicked (feeExists=true)
-  setTabAccess('tab-fee','tp-fee',r>=3&&ps.feeExists,'Click "Build fee calculator" on Role selection to proceed');
-  // Programme: fee calculator built
-  setTabAccess('tab-prog','tp-prog',r>=3&&ps.feeExists,'Build fee calculator first to unlock Programme');
-  // Proposal summary: all tabs done
-  setTabAccess('tab-ps','tp-ps',r>=3&&allTabsComplete(id),'Complete Cover page, Role selection, Fee calculator, and Programme first');
+  setTabAccess('tab-fee','tp-fee',gates.feeCalc,'Complete Role selection and build fee calculator first');
+  setTabAccess('tab-prog','tp-prog',gates.programme,'Build fee calculator first to unlock Programme');
+  setTabAccess('tab-ps','tp-ps',gates.proposal,'Complete Cover page, Fee calculator, and Programme first');
 
-  // Header "Build fee calculator" button:
-  // Show only when: Qualified+ AND cvVisited AND roles selected AND fee not yet built
-  const buildBtn=document.getElementById('build-fee-btn');
-  if(buildBtn){
-    const showBuild=r>=3&&ps.cvVisited&&ps.selRoles.size>0&&!ps.feeExists;
-    buildBtn.style.display=showBuild?'':'none';
-  }
+  // Build fee button
+  const buildBtn = document.getElementById('build-fee-btn');
+  if(buildBtn) buildBtn.style.display = gates.buildFeeBtn ? '' : 'none';
 
-  // If edit-proposal modal is open, skip all proposal-view rendering
-  // to avoid nuking the modal's active tab
+  // Fee Estimate button — visible only at rank 2-3, not Proposal+
+  const feeEstBtn = document.getElementById('cfg-estimate-btn');
+  if(feeEstBtn) feeEstBtn.style.display = gates.feeBtn ? 'inline-flex' : 'none';
 
-  // Proposal stage — show proposal view instead of normal tabs
-  const isProposal = pipe.stage === 'Proposal' || pipe.stage === 'Negotiation' || pipe.stage === 'Live';
-  // In edit mode — show tabs and Overview even for Proposal/Negotiation/Live
-  const showSummary = isProposal && !_inEditMode;
-  const tabBar = document.getElementById('dtabs');
-  if(tabBar) tabBar.style.display = showSummary ? 'none' : '';
+  // Proposal/Negotiation/Live — show proposal view
+  const tabBar  = document.getElementById('dtabs');
   const propView = document.getElementById('proposal-view');
-  if(propView) propView.style.display = showSummary ? 'flex' : 'none';
-  if(buildBtn) buildBtn.style.display = isProposal ? 'none' : (r>=3&&ps.cvVisited&&ps.selRoles.size>0&&!ps.feeExists?'':'none');
-  const saveBtn = document.querySelector('.dh .btn.bp');
-  if(saveBtn) saveBtn.style.display = showSummary ? 'none' : '';
+  const saveBtn  = document.querySelector('.dh .btn.bp');
   const stagePanel = document.getElementById('stage-panel');
-  if(stagePanel) stagePanel.style.display = showSummary ? 'none' : '';
-  if(showSummary) document.querySelectorAll('.tp').forEach(t=>t.classList.remove('on'));
-  if(showSummary){
+
+  if(tabBar)     tabBar.style.display     = gates.showSummary ? 'none' : '';
+  if(propView)   propView.style.display   = gates.showSummary ? 'flex' : 'none';
+  if(saveBtn)    saveBtn.style.display    = gates.showSummary ? 'none' : '';
+  if(stagePanel) stagePanel.style.display = gates.showSummary ? 'none' : '';
+
+  if(gates.showSummary) {
+    document.querySelectorAll('.tp').forEach(t=>t.classList.remove('on'));
     renderProposalView(id);
     return;
   }
-  // Restore chrome for non-proposal stages
-  if(stagePanel) stagePanel.style.display='';
-  if(saveBtn) saveBtn.style.display='';
 
+  if(stagePanel) stagePanel.style.display = '';
+  if(saveBtn)    saveBtn.style.display    = '';
   renderContactBlock(id);
   renderBidSection(id);
-  // Restore chrome that may have been hidden by proposal view
-  const _sp=document.getElementById('stage-panel');if(_sp)_sp.style.display='';
-  const _sb=document.querySelector('.dh .btn.bp');if(_sb)_sb.style.display='';
 }
 function buildFeeFromHeader(){
   if(!currentId)return;
@@ -5594,27 +5706,31 @@ function renderContactBlock(id){
   if(bb)bb.style.display=r>=2?'block':'none';
 }
 function renderBidSection(id){
-  const r=rank(getPipe(id).stage);
-  const notice=document.getElementById('bid-locked-notice');const fields=document.getElementById('bid-fields');
+  const gates = getTabGates(id);
+  const r = rank(getPipe(id).stage);
+  const notice = document.getElementById('bid-locked-notice');
+  const fields = document.getElementById('bid-fields');
   if(r>=2){if(notice)notice.style.display='none';if(fields)fields.style.display='block';}
   else{if(notice)notice.style.display='flex';if(fields)fields.style.display='none';}
-  // Reference field — editable at Qualified+, readonly otherwise
-  // Label changes to guide the user
-  const refEl=document.getElementById('ovref');
-  const refLabel=document.getElementById('ovref-label');
+  // Reference field — editable when rank>=2 and no real code yet
+  const refEl    = document.getElementById('ovref');
+  const refLabel = document.getElementById('ovref-label');
   if(refEl){
-    if(r>=3&&!hasRealPPACode(id)){
+    const hasCode = hasRealPPACode(id);
+    if(r>=2 && !hasCode){
       refEl.removeAttribute('readonly');
       refEl.classList.remove('ro');
-      refEl.style.background='';
-      if(refLabel)refLabel.innerHTML='Reference <span style="font-size:9px;color:var(--amber);font-family:var(--fm);font-weight:400">— update to PPA project code to unlock Cover page</span>';
+      if(refLabel) refLabel.innerHTML='Reference <span style="font-size:9px;color:var(--amber);font-family:var(--fm);font-weight:400">— enter PPA project code (e.g. PPA260798) to unlock Cover page</span>';
     } else {
       refEl.setAttribute('readonly','');
       refEl.classList.add('ro');
-      refEl.style.background='';
-      if(refLabel)refLabel.textContent=hasRealPPACode(id)?'PPA Project Code':'Reference';
+      if(refLabel) refLabel.textContent = hasCode ? 'PPA Project Code' : 'Reference';
     }
-    if(!_refHintBusy)updateRefHint();
+    if(!_refHintBusy) updateRefHint();
+  }
+  // Refresh completion banner if present
+  if(document.getElementById('cfg-completion-banner')) {
+    cfgShowCompletionBanner(id);
   }
 }
 function feeHasValues(id){
@@ -8330,7 +8446,7 @@ window.addEventListener('error', (e) => {
 window.addEventListener('unhandledrejection', (e) => {
   _dbg('ERROR', `Unhandled promise rejection: ${e.reason?.message || e.reason}`);
 });
-console.log('%c PPa Platform v45 ', 'background:#8dc63f;color:#1a1a1a;font-size:13px;font-weight:900;padding:6px 12px;border-radius:4px');
+console.log('%c PPa Platform v46 ', 'background:#8dc63f;color:#1a1a1a;font-size:13px;font-weight:900;padding:6px 12px;border-radius:4px');
 _dbg('INFO', `Page loaded — ${new Date().toLocaleString('en-GB')}`);
 </script>
 </body>
