@@ -1682,10 +1682,17 @@ const HARDCODED_MATRIX = {
     blended_rate:95,
   },
   subconsultDefaults:{
+    // By band (standard enterprise defaults)
     A:['Architecture','Fire & Life Safety'],
-    B:['Architecture','Structural & Civil','Fire & Life Safety','Security / ICT / AV'],
-    C:['Architecture','Structural & Civil','Fire & Life Safety','Security / ICT / AV','Acoustics'],
-    D:['Architecture','Structural & Civil','Fire & Life Safety','Security / ICT / AV','Acoustics','Flood Risk'],
+    B:['Architecture','Structural & Civil','Fire & Life Safety'],
+    C:['Architecture','Structural & Civil','Fire & Life Safety','Acoustics'],
+    D:['Architecture','Structural & Civil','Fire & Life Safety','Acoustics','Flood Risk'],
+    // By DC type (overrides band defaults when dcType is set)
+    dc_edge:     ['Fire & Life Safety'],
+    dc_district: ['Architecture','Structural & Civil','Fire & Life Safety'],
+    dc_ai_hpc:   ['Architecture','Structural & Civil','Fire & Life Safety'],
+    dc_hyper:    ['Architecture','Structural & Civil','Fire & Life Safety','Acoustics','Flood Risk'],
+    dc_colo:     ['Architecture','Structural & Civil','Fire & Life Safety'],
   },
   scopeRules:[
     {condition:'mech_only', item_id:'mep_pwr_sch',        state:'EXCL'},
@@ -1707,6 +1714,26 @@ const HARDCODED_MATRIX = {
     {condition:'dlc_cooling',item_id:'mep_bms',            state:'Y'},
     {condition:'dlc_cooling',item_id:'mep_soo',            state:'Y'},
     {condition:'evap_cooling',item_id:'mep_bms',           state:'Y'},
+    // DC type — AI/HPC
+    {condition:'dc_type_ai_hpc',  item_id:'mech_humidifier',  state:'EXCL',note:'No AHUs in DLC'},
+    // DC type — Edge/Micro
+    {condition:'dc_type_edge',    item_id:'elec_arc',          state:'EXCL',note:'Not applicable at edge scale'},
+    {condition:'dc_type_edge',    item_id:'mech_fuel',         state:'EXCL',note:'Battery backup replaces generator'},
+    {condition:'dc_type_edge',    item_id:'ph_cond_water',     state:'EXCL',note:'No central plant'},
+    {condition:'dc_type_edge',    item_id:'ph_chem',           state:'EXCL',note:'No cooling towers'},
+    {condition:'dc_type_edge',    item_id:'ph_legionella',     state:'EXCL',note:'No cooling towers'},
+    {condition:'dc_type_edge',    item_id:'strct_gantry',      state:'EXCL',note:'No external plant structure'},
+    {condition:'dc_type_edge',    item_id:'bim_bep',           state:'EXCL',note:'CAD/Doc Control only'},
+    {condition:'dc_type_edge',    item_id:'bim_acc',           state:'EXCL',note:'CAD/Doc Control only'},
+    {condition:'dc_type_edge',    item_id:'bim_model',         state:'EXCL',note:'No federated model'},
+    {condition:'dc_type_edge',    item_id:'bim_clash',         state:'EXCL',note:'No federated model'},
+    {condition:'dc_type_edge',    item_id:'bim_qa',            state:'EXCL',note:'No federated model'},
+    // DC type — District Cooling
+    {condition:'dc_type_district',item_id:'mech_cool_sch',     state:'EXCL',note:'No on-site cooling plant'},
+    {condition:'dc_type_district',item_id:'mech_cool_layout',  state:'EXCL',note:'No on-site cooling plant'},
+    {condition:'dc_type_district',item_id:'ph_cond_water',     state:'EXCL',note:'No cooling towers'},
+    {condition:'dc_type_district',item_id:'ph_chem',           state:'EXCL',note:'No cooling towers'},
+    {condition:'dc_type_district',item_id:'strct_gantry',      state:'EXCL',note:'No external plant structure'},
   ],
 };
 
@@ -1876,7 +1903,7 @@ const _cfgDefault = () => ({
   // Step 1
   title:'', company:'', contactName:'', contactRole:'', contactEmail:'', contactPhone:'',
   location:'', lmgr:'', building:'', src:'', brief:'', contactPhoneCC:'+971',
-  itLoad:null, coolingId:'air', scopeId:'full_mep', framework:'riba',
+  itLoad:null, coolingId:'air', scopeId:'full_mep', dcType:'standard', framework:'riba',
   // Step 2
   stages:[], durations:{},
   // Step 3
@@ -1986,6 +2013,7 @@ function cfgSaveStep(step) {
     _cfg.itLoad    = parseFloat(document.getElementById('cfg-it')?.value||0)||null;
     _cfg.coolingId = document.getElementById('cfg-cooling')?.value||'air';
     _cfg.scopeId   = document.getElementById('cfg-scope')?.value||'full_mep';
+    _cfg.dcType    = document.getElementById('cfg-dctype')?.value||'standard';
     _cfg.framework = document.querySelector('input[name="cfg-frame"]:checked')?.value||'riba';
     if(_cfg.mode==='new') {
       _cfg.title        = (document.getElementById('cfg-title')?.value||'').trim();
@@ -2183,6 +2211,14 @@ function cfgStep1(body, sub) {
         Object.entries(CFG_MATRIX.cooling).map(([k,v])=>[k,v.label]),
         _cfg.coolingId))}
     </div>
+    ${cfgField('DC project type', cfgSel('cfg-dctype',[
+      ['standard','Standard Enterprise'],
+      ['ai_hpc','AI / HPC (GPU-dense)'],
+      ['hyperscale','Hyperscale (OCP campus)'],
+      ['colocation','Colocation (shell & core)'],
+      ['edge','Edge / Micro (<5MW)'],
+      ['district','District Cooling (no on-site plant)'],
+    ],_cfg.dcType))}
     ${cfgField('MEP scope', cfgSel('cfg-scope',[
       ['full_mep','Full MEP (Mechanical + Electrical)'],
       ['mech_only','Mechanical only'],
@@ -2547,8 +2583,13 @@ async function cfgCreateProject(cfg) {
 function cfgSubConsultDefaults(cfg) {
   const m    = CFG_MATRIX;
   const band = m.bands.find(b=>cfg.itLoad>=b.min&&cfg.itLoad<b.max)||m.bands[m.bands.length-1];
-  // Read from matrix (Supabase or hardcoded fallback)
   const defaults = m.subconsultDefaults || HARDCODED_MATRIX.subconsultDefaults;
+  const dcType = cfg.dcType || 'standard';
+  // DC type overrides take priority over band defaults
+  const dcKey = 'dc_' + dcType;
+  if(dcType !== 'standard' && defaults[dcKey]) {
+    return [...defaults[dcKey]];
+  }
   return [...(defaults[band.id] || defaults['B'] || [])];
 }
 
@@ -2558,17 +2599,20 @@ function cfgScopeDefaults(cfg) {
   const band = m.bands.find(b=>cfg.itLoad>=b.min&&cfg.itLoad<b.max)||m.bands[m.bands.length-1];
   const rules = m.scopeRules || HARDCODED_MATRIX.scopeRules;
   const toRiba = {S1:1, TF:1, S2:2, S3:3, S4:4, S5:5};
+  const dcType = cfg.dcType || 'standard';
 
   // Derive active conditions from wizard config
   const isDLC  = cfg.coolingId && cfg.coolingId.startsWith('dlc');
   const isEvap = cfg.coolingId === 'evap';
   const activeConditions = new Set([
-    cfg.scopeId === 'mech_only' ? 'mech_only' : null,
-    cfg.scopeId === 'elec_only' ? 'elec_only' : null,
-    !cfg.cfdEnabled             ? 'cfd_off'   : null,
+    cfg.scopeId === 'mech_only'   ? 'mech_only'      : null,
+    cfg.scopeId === 'elec_only'   ? 'elec_only'      : null,
+    !cfg.cfdEnabled               ? 'cfd_off'        : null,
     'band_'+band.id.toLowerCase(),
     isDLC  ? 'dlc_cooling'  : null,
     isEvap ? 'evap_cooling' : null,
+    // DC type conditions
+    dcType !== 'standard' ? 'dc_type_'+dcType : null,
   ].filter(Boolean));
 
   cfg.stages.forEach(sid => {
@@ -2585,6 +2629,42 @@ function cfgScopeDefaults(cfg) {
     if(cfg.cfdEnabled) {
       if(stgNum === 3) sc['cfd_ext:'+stgNum] = 'Y';
       if(stgNum === 4) { sc['cfd_ext:'+stgNum] = 'Y'; sc['cfd_int:'+stgNum] = 'Y'; }
+    }
+
+    // DC type — CFD Analysis always excluded unless cfdEnabled
+    if(!cfg.cfdEnabled) {
+      sc['cfd_ext:'+stgNum] = 'EXCL';
+      sc['cfd_int:'+stgNum] = 'EXCL';
+    }
+
+    // Security/ICT — excluded by default, LM adds on cover page
+    // (Not excluded here — controlled by sub-consultant toggle on cover page)
+
+    // Edge / Micro — exclude items not applicable at small scale
+    if(dcType === 'edge') {
+      ['elec_arc','mech_fuel','ph_cond_water','ph_chem','ph_legionella',
+       'strct_gantry','bim_bep','bim_acc','bim_model','bim_clash','bim_qa'].forEach(id=>{
+        sc[id+':'+stgNum]='EXCL';
+      });
+    }
+    // District Cooling — exclude on-site cooling plant items
+    if(dcType === 'district') {
+      ['mech_cool_sch','mech_cool_layout','ph_cond_water','ph_chem',
+       'strct_gantry'].forEach(id=>{
+        sc[id+':'+stgNum]='EXCL';
+      });
+    }
+    // AI/HPC — exclude air-cooling items, DLC is assumed
+    if(dcType === 'ai_hpc') {
+      ['mech_humidifier'].forEach(id=>{ sc[id+':'+stgNum]='EXCL'; });
+      // SOO needed from SD onwards (DLC controls are more complex)
+      if(stgNum === 3) sc['mech_soo:'+stgNum]='P';
+    }
+    // BIM Management — excluded for Band A regardless of DC type
+    if(band.id === 'A') {
+      ['bim_bep','bim_acc','bim_model','bim_clash','bim_qa'].forEach(id=>{
+        sc[id+':'+stgNum]='EXCL';
+      });
     }
   });
 
@@ -2641,6 +2721,7 @@ function cfgApplyHours(projectId, result, cfg) {
     itLoad: cfg.itLoad,
     coolingId: cfg.coolingId,
     scopeId: cfg.scopeId,
+    dcType: cfg.dcType || 'standard',
     framework: cfg.framework,
     cfdEnabled: cfg.cfdEnabled,
   };
@@ -2848,94 +2929,120 @@ const RIBA=[
 // stageMap: which RIBA stages this deliverable is relevant to (Y=full, P=partial, R=report)
 const Y_='y',P_='p',R_='r',N_='n';
 const DELIVERABLES=[
-  {disc:'MEP',color:'#8dc63f',items:[
-    {id:'mep_bod',name:'Basis of Design report',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'mep_pwr_sch',name:'Critical power schematics (MV/LV/UPS)',stages:{2:Y_,3:Y_,4:Y_,5:P_}},
-    {id:'mep_cool_sch',name:'Critical cooling schematics (CHW/cooling)',stages:{2:Y_,3:Y_,4:Y_,5:P_}},
-    {id:'mep_crit_layout',name:'MEP layouts — critical systems',stages:{2:P_,3:Y_,4:Y_}},
-    {id:'mep_noncrit_layout',name:'MEP layouts — non-critical systems',stages:{3:Y_,4:Y_}},
-    {id:'mep_equip_sched',name:'Critical equipment schedules',stages:{3:Y_,4:Y_},note:'OFCI / early procurement'},
-    {id:'mep_equip_spec',name:'Critical equipment specifications',stages:{3:Y_,4:Y_}},
-    {id:'mep_cable',name:'Cable sizing & containment design',stages:{4:Y_,5:Y_}},
-    {id:'mep_loads',name:'Load assessment & max demands',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'mep_disc_arc',name:'Discrimination / arc flash studies',stages:{4:Y_}},
-    {id:'mep_ups_calc',name:'UPS autonomy calculations',stages:{4:Y_}},
-    {id:'mep_lighting',name:'Lighting & emergency lighting design',stages:{4:Y_}},
-    {id:'mep_pv',name:'Renewable energy integration (PV)',stages:{3:P_,4:Y_}},
-    {id:'mep_pue',name:'PUE calculations (peak + annualised)',stages:{2:P_,3:Y_,4:Y_}},
-    {id:'mep_fuel',name:'Fuel oil system design',stages:{3:Y_,4:Y_}},
-    {id:'mep_bms',name:'BMS / Controls (performance design)',stages:{3:P_,4:Y_},note:'CDP element'},
-    {id:'mep_soo',name:'Sequence of Operations',stages:{4:Y_},note:'Critical systems'},
-    {id:'mep_bw',name:'Builders work drawings',stages:{4:Y_}},
-    {id:'mep_maint',name:'Plant replacement & maintenance strategy',stages:{4:Y_,5:P_,6:P_}},
-    {id:'mep_site',name:'Site supervision / CA support',stages:{5:Y_,6:Y_}},
+  // ── PPa IN-HOUSE SERVICES ─────────────────────────────────
+  {disc:'Mechanical Engineering',color:'#4da6ff',items:[
+    {id:'mech_bod',   name:'Basis of Design Report — MEP (Mech, Elec, PH combined)',stages:{1:P_,2:Y_,3:Y_,4:Y_},note:'One combined PPa report per stage'},
+    {id:'mech_cool_sch',   name:'Critical cooling schematics',                      stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'mech_cool_layout',name:'Cooling plant layouts & equipment positions',       stages:{2:P_,3:Y_,4:Y_}},
+    {id:'mech_equip_sched',name:'Major mechanical equipment schedules',              stages:{3:Y_,4:Y_}},
+    {id:'mech_equip_spec', name:'Major mechanical equipment specifications',         stages:{3:Y_,4:Y_}},
+    {id:'mech_fuel',       name:'Fuel oil system design (generator day tank)',       stages:{3:Y_,4:Y_}},
+    {id:'mech_pue',        name:'PUE calculations — peak & annualised',             stages:{2:P_,3:Y_,4:Y_}},
+    {id:'mech_bms',        name:'BMS/Controls — performance specification',         stages:{3:P_,4:Y_}},
+    {id:'mech_soo',        name:'Sequence of Operations — critical systems',        stages:{4:Y_}},
+    {id:'mech_maint',      name:'Plant replacement & maintenance strategy',          stages:{4:Y_,5:P_}},
+    {id:'mech_hvac',       name:'HVAC — office, welfare & comms rooms',             stages:{3:Y_,4:Y_}},
+    {id:'mech_vent',       name:'Ventilation — plant rooms, battery rooms & escape', stages:{3:Y_,4:Y_}},
+    {id:'mech_humidifier', name:'Data hall AHU humidifier provisions',              stages:{3:P_,4:Y_}},
+    {id:'mech_bw',         name:'Builders work drawings — mechanical',              stages:{4:Y_}},
+    {id:'mech_site',       name:'Mechanical site supervision / CA support',         stages:{5:Y_}},
   ]},
-  {disc:'Architecture',color:'#9b8df8',items:[
-    {id:'arch_master',name:'Masterplan & site feasibility study',stages:{1:Y_,2:Y_},note:'Up to 2 studies'},
-    {id:'arch_bod',name:'Basis of Design — architectural',stages:{1:Y_,2:Y_}},
-    {id:'arch_concept',name:'Conceptual site plan & massing',stages:{2:Y_}},
-    {id:'arch_plans',name:'Floor plans — all buildings',stages:{2:P_,3:Y_,4:Y_}},
-    {id:'arch_elev',name:'Elevations & sections',stages:{2:P_,3:Y_,4:Y_}},
-    {id:'arch_3d',name:'3D computer massing model',stages:{2:Y_}},
-    {id:'arch_area',name:'Area schedule',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'arch_bim',name:'BIM model (LOD 200 → LOD 300)',stages:{2:Y_,3:Y_,4:Y_},note:'S2=200, S4=300'},
-    {id:'arch_spec',name:'Specifications & vendor list',stages:{3:Y_,4:Y_}},
-    {id:'arch_detail',name:'Spot enlargements & details',stages:{4:Y_}},
-    {id:'arch_aor_code',name:'AoR — local code compliance review',stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
-    {id:'arch_aor_auth',name:'AoR — authority submission package',stages:{2:P_,3:Y_,4:Y_}},
+  {disc:'Electrical Engineering',color:'#f5a623',items:[
+    {id:'elec_pwr_sch',    name:'Critical power schematics (MV/LV/UPS/generator)',  stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'elec_loads',      name:'Load assessment & maximum demand schedules',        stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'elec_equip_sched',name:'Electrical equipment schedules',                   stages:{3:Y_,4:Y_}},
+    {id:'elec_equip_spec', name:'Electrical equipment specifications',              stages:{3:Y_,4:Y_}},
+    {id:'elec_cable',      name:'Cable sizing & containment design',                stages:{4:Y_,5:P_}},
+    {id:'elec_arc',        name:'Discrimination & arc flash studies',               stages:{4:Y_}},
+    {id:'elec_ups',        name:'UPS autonomy calculations',                        stages:{4:Y_}},
+    {id:'elec_lighting',   name:'Lighting & emergency lighting design',             stages:{4:Y_}},
+    {id:'elec_earthing',   name:'Earthing & lightning protection design',           stages:{4:Y_}},
+    {id:'elec_gen',        name:'Generator controls & paralleling scheme',          stages:{3:P_,4:Y_}},
+    {id:'elec_bw',         name:'Builders work drawings — electrical',              stages:{4:Y_}},
+    {id:'elec_site',       name:'Electrical site supervision / CA support',         stages:{5:Y_}},
+  ]},
+  {disc:'Public Health',color:'#1db8a0',items:[
+    {id:'ph_drainage',     name:'Foul & surface drainage design',                   stages:{2:P_,3:Y_,4:Y_}},
+    {id:'ph_water',        name:'Domestic water services — hot, cold, LTHW',        stages:{3:Y_,4:Y_}},
+    {id:'ph_cond_water',   name:'Condenser water treatment system design',          stages:{3:Y_,4:Y_}},
+    {id:'ph_chem',         name:'Chemical dosing system design',                    stages:{3:P_,4:Y_}},
+    {id:'ph_plant_drain',  name:'Mechanical plant drainage & oil interceptors',     stages:{3:Y_,4:Y_}},
+    {id:'ph_legionella',   name:'Legionella risk assessment / L8 compliance',       stages:{3:Y_,4:Y_}},
+    {id:'ph_gas',          name:'Gas distribution design (if applicable)',          stages:{3:P_,4:Y_}},
+    {id:'ph_rwh',          name:'Rainwater harvesting (Band C/D sustainability)',   stages:{3:P_,4:Y_}},
+  ]},
+  {disc:'Security / ICT',color:'#f05a4f',items:[
+    {id:'ict_stra',        name:'Security Threat & Risk Assessment (STRA)',         stages:{1:Y_,2:Y_}},
+    {id:'ict_concept',     name:'Concept security strategy & perimeter zoning',    stages:{1:Y_,2:Y_}},
+    {id:'ict_layouts',     name:'Building security layouts (CCTV, ACS, IDS)',       stages:{2:P_,3:Y_,4:Y_}},
+    {id:'ict_hvm',         name:'HVM measures — bollards, barriers, vehicle gates', stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'ict_elv',         name:'IT/ELV design report & layouts (LAN, SAN, Wi-Fi)',stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'ict_spec',        name:'Security & ICT schematics & specifications',      stages:{3:Y_,4:Y_}},
+    {id:'ict_site',        name:'ICT / Security site supervision',                 stages:{5:Y_}},
+  ]},
+  {disc:'CFD Analysis',color:'#9b8df8',items:[
+    {id:'cfd_ext',         name:'External CFD — wind & ambient thermal analysis',   stages:{3:Y_}},
+    {id:'cfd_int',         name:'Internal CFD — data hall airflow & thermal',       stages:{4:Y_}},
+  ]},
+  {disc:'BIM Management',color:'#8dc63f',items:[
+    {id:'bim_bep',         name:'BIM Execution Plan (BEP)',                         stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'bim_acc',         name:'ACC (Autodesk Construction Cloud) setup & mgmt',   stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'bim_model',       name:'Federated BIM model — LOD 100 → LOD 350',          stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'bim_clash',       name:'Clash detection & coordination reports',           stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'bim_qa',          name:'Design stage QA review report',                    stages:{2:Y_,3:Y_,4:Y_}},
+  ]},
+  {disc:'Document Control',color:'#8dc63f',items:[
+    {id:'doc_cde',         name:'Sharepoint CDE setup & management',                stages:{2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'doc_qaqc',        name:'Document QA/QC',                                   stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'doc_register',    name:'Document register & transmittals',                 stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'doc_risk',        name:'Design risk register',                             stages:{2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'doc_change',      name:'Change management log (client sign-off required)', stages:{2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'doc_cad',         name:'CAD drawing production (Band A — no BIM model)',   stages:{2:Y_,3:Y_,4:Y_}},
+  ]},
+  // ── SUB-CONSULTANTS (PPa coordinates) ─────────────────────
+  {disc:'Architecture',color:'#888780',items:[
+    {id:'arch_bod',        name:'Basis of Design — Architectural (into PPa BOD)',   stages:{1:Y_,2:Y_}},
+    {id:'arch_master',     name:'Masterplan & site feasibility study',              stages:{1:Y_,2:Y_},note:'Band C/D campus only'},
+    {id:'arch_massing',    name:'Conceptual site plan & massing model',             stages:{2:Y_}},
+    {id:'arch_plans',      name:'Floor plans — all buildings',                      stages:{2:P_,3:Y_,4:Y_}},
+    {id:'arch_elev',       name:'Elevations & sections',                            stages:{2:P_,3:Y_,4:Y_}},
+    {id:'arch_area',       name:'Area schedule & room data sheets',                 stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'arch_spec',       name:'Architectural specifications & finishes schedule', stages:{3:Y_,4:Y_}},
+    {id:'arch_detail',     name:'Spot enlargements & construction details',         stages:{4:Y_}},
+    {id:'arch_aor_code',   name:'AoR — local code compliance review',               stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
+    {id:'arch_aor_auth',   name:'AoR — authority submission package (ME)',          stages:{2:P_,3:Y_,4:Y_}},
   ]},
   {disc:'Structural & Civil',color:'#f5a623',items:[
-    {id:'strct_civil_strat',name:'Site civil strategy — grading, roads, utilities',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'strct_strat',name:'Structural strategy — data hall & MEP block',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'strct_found',name:'Foundation & raft slab design',stages:{3:Y_,4:Y_}},
-    {id:'strct_storm',name:'Stormwater drainage design',stages:{2:Y_,3:Y_,4:Y_}},
-    {id:'strct_gantry',name:'External chiller gantry structure',stages:{3:Y_,4:Y_}},
-    {id:'strct_dwgs',name:'Structural drawings & specifications',stages:{3:Y_,4:Y_}},
-    {id:'strct_road',name:'Access road strategy',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'strct_bod',       name:'Basis of Design — Structural (into PPa BOD)',      stages:{1:P_,2:Y_}},
+    {id:'strct_strat',     name:'Structural strategy — data hall & MEP block',      stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'strct_civil',     name:'Site civil strategy — grading, roads, utilities',  stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'strct_found',     name:'Foundation & raft slab design',                    stages:{3:Y_,4:Y_}},
+    {id:'strct_gantry',    name:'External plant support structures',                stages:{3:Y_,4:Y_}},
+    {id:'strct_storm',     name:'Stormwater drainage design',                       stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'strct_road',      name:'Access road & hardstanding design',                stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'strct_dwgs',      name:'Structural drawings & specifications — IFC',       stages:{3:Y_,4:Y_}},
   ]},
   {disc:'Fire & Life Safety',color:'#f05a4f',items:[
-    {id:'fls_bod',name:'Basis of Design — FLS',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'fls_report',name:'FLS strategy report',stages:{2:R_,3:R_,4:R_}},
-    {id:'fls_dwgs',name:'FLS marked-up architectural drawings',stages:{2:Y_,3:Y_,4:Y_},note:'Compartmentation, egress, access'},
-    {id:'fls_access',name:'Fire vehicle access & hydrant review',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'fls_systems',name:'Fire safety systems performance spec',stages:{2:Y_,3:Y_,4:Y_}},
-    {id:'fls_prot',name:'Fire protection design (CDP)',stages:{3:P_,4:Y_,5:Y_}},
-    {id:'fls_materials',name:'Materials selection review',stages:{2:Y_,3:Y_}},
-  ]},
-  {disc:'Security / ICT / AV',color:'#4da6ff',items:[
-    {id:'ict_stra',name:'Security Threat & Risk Assessment report',stages:{1:R_,2:R_}},
-    {id:'ict_concept',name:'Concept security strategy',stages:{1:Y_,2:Y_}},
-    {id:'ict_it',name:'IT/ELV design report & layouts',stages:{2:R_,3:Y_,4:Y_},note:'LAN, Wi-Fi, telephony, SAN'},
-    {id:'ict_sec',name:'Building security design (CCTV, ACS, IDS)',stages:{2:P_,3:Y_,4:Y_}},
-    {id:'ict_hvm',name:'HVM measures (bollards, barriers, gates)',stages:{1:P_,2:Y_,3:Y_,4:Y_}},
-    {id:'ict_av',name:'AV systems (IPTV, PA, video intercom)',stages:{2:P_,3:Y_,4:Y_}},
-    {id:'ict_spec',name:'Security schematics & specifications',stages:{3:Y_,4:Y_}},
-  ]},
-  {disc:'CFD Analysis',color:'#1db8a0',items:[
-    {id:'cfd_ext',name:'External CFD — wind analysis',stages:{3:Y_},note:'3 wind speeds, normal + failure'},
-    {id:'cfd_int',name:'Internal CFD — data hall thermal',stages:{4:Y_},note:'2 iterations, normal + failure'},
+    {id:'fls_bod',         name:'Basis of Design — FLS (into PPa BOD at CD)',       stages:{1:P_,2:Y_}},
+    {id:'fls_report',      name:'FLS strategy report — narrative',                  stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'fls_dwgs',        name:'FLS marked-up drawings (compartmentation & egress)',stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'fls_access',      name:'Fire vehicle access & hydrant strategy',           stages:{1:P_,2:Y_,3:Y_,4:Y_}},
+    {id:'fls_systems',     name:'Fire safety systems performance specification',    stages:{2:Y_,3:Y_,4:Y_}},
+    {id:'fls_prot',        name:'Fire protection design — CDP',                     stages:{3:P_,4:Y_,5:Y_}},
+    {id:'fls_materials',   name:'Materials selection review (fire rating)',         stages:{2:Y_,3:Y_}},
+    {id:'fls_authority',   name:'Authority submission — FLS package (ME)',          stages:{3:P_,4:Y_}},
   ]},
   {disc:'Acoustics',color:'#9b8df8',items:[
-    {id:'ac_desktop',name:'Acoustic desktop assessment',stages:{1:P_,2:R_}},
-    {id:'ac_loc',name:'Equipment noise location strategy',stages:{2:Y_,3:Y_}},
-    {id:'ac_treat',name:'Acoustic treatment recommendations',stages:{3:Y_,4:Y_}},
-    {id:'ac_report',name:'Acoustic narrative report',stages:{2:R_,3:R_}},
+    {id:'ac_desktop',      name:'Acoustic desktop assessment',                      stages:{2:Y_}},
+    {id:'ac_noise',        name:'Equipment noise & vibration location strategy',    stages:{2:Y_,3:Y_}},
+    {id:'ac_treat',        name:'Acoustic treatment recommendations & specs',       stages:{3:Y_,4:Y_}},
+    {id:'ac_report',       name:'Acoustic narrative report',                        stages:{2:Y_,3:Y_}},
   ]},
   {disc:'Flood Risk',color:'#4da6ff',items:[
-    {id:'flood_report',name:'Flood risk assessment report (100/500yr)',stages:{2:R_},note:'Pluvial + fluvial, GIS/WMS'},
-    {id:'flood_dem',name:'DEM data processing & watershed model',stages:{2:Y_}},
+    {id:'flood_report',    name:'Flood risk assessment (100/500yr pluvial & fluvial)',stages:{2:Y_}},
+    {id:'flood_dem',       name:'DEM data processing & watershed model',            stages:{2:Y_}},
   ]},
-  {disc:'BIM / Doc Control',color:'#8dc63f',items:[
-    {id:'bim_bep',name:'BIM Execution Plan',stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
-    {id:'bim_cde',name:'Common Data Environment setup',stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_},note:'BIM360'},
-    {id:'bim_doc',name:'Document register & transmittals',stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_,6:Y_}},
-    {id:'bim_qa',name:'Design stage QA review report',stages:{2:Y_,3:Y_,4:Y_}},
-    {id:'bim_risk',name:'Design risk register',stages:{1:Y_,2:Y_,3:Y_,4:Y_,5:Y_}},
-    {id:'bim_change',name:'Change management log',stages:{2:Y_,3:Y_,4:Y_,5:Y_},note:'Client sign-off required'},
-    {id:'bim_om',name:'O&M / handover documentation',stages:{6:Y_,7:P_}},
-  ]},
-];
-const DISC=[
+];const DISC=[
   {k:'leadership',l:'Leadership',r:[
     {id:'proj_dir',n:'Project Director',rate:141.29},
     {id:'sr_dpm',n:'Senior Design PM',rate:120.41},
@@ -3020,9 +3127,12 @@ const SUB_DISC_NAMES={
   'Fire & Life Safety':'Fire & Life Safety Services',
   'Acoustics':'Acoustic Design Services',
   'Flood Risk':'Flood Risk Assessment',
-  'Security / ICT / AV':'Security / ICT / AV Design Services',
-  'BIM / Doc Control':'BIM & Document Control',
-  'MEP':'MEP Services',
+  'Security / ICT':'ICT & Security Services',
+  'BIM Management':'BIM Management Services',
+  'Mechanical Engineering':'Mechanical Engineering Services',
+  'Electrical Engineering':'Electrical Engineering Services',
+  'Public Health':'Public Health Engineering Services',
+  'Document Control':'Document Control Services',
   'CFD Analysis':'CFD Analysis Services',
 };
 const STAGE_RANK={'New Lead':0,'Att. to contact':1,'Contacted':2,'Information Pending':2,'Qualified':3,'In Assessment':3,'Opportunity':3,'Proposal':4,'Negotiation':4.5,'Live':5,'On Hold':6,'Closed Lead':99};
@@ -6260,7 +6370,6 @@ function renderCoverPage(id){
       <span style="font-size:10px;font-family:var(--fm);color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">Defaults from stage selection — override any item or add custom deliverables</span>
     </div>
     <div class="scope-panel" id="scope-panel-${id}"></div>
-    <div id="cv-debug-${id}"></div>
   </div>`;
   // Use setTimeout(0) to yield to browser layout engine before rendering into the newly set innerHTML
   setTimeout(()=>{
@@ -6268,49 +6377,7 @@ function renderCoverPage(id){
     updateDur(id);
     renderScopePanel(id);
     renderSubConsultWrap(id);
-    // Debug panel update
-    const _dbg2 = document.getElementById('cv-debug-'+id);
-    if(_dbg2) {
-      const ps_ = getPS(id);
-      const band_ = CFG_MATRIX.bands.find(b=>PROJECTS[id]?.it>=b.min&&PROJECTS[id]?.it<b.max)||CFG_MATRIX.bands[1];
-      _dbg2.innerHTML = `<div style="margin-top:14px;padding:10px 12px;background:rgba(0,0,0,.05);border:1px solid var(--border);border-radius:6px;font-size:10px;font-family:monospace;line-height:1.7;color:var(--text2)">
-        <b>DEBUG — cover page state</b><br/>
-        stageFramework: <b>${ps_.stageFramework||'—'}</b><br/>
-        selStages: <b>${ps_.selStages?[...ps_.selStages].join(', '):'—'}</b> (size: ${ps_.selStages?.size??'no Set'})<br/>
-        subConsultants: <b>${(ps_.subConsultants||[]).join(', ')||'EMPTY'}</b><br/>
-        scopeConfig keys: <b>${Object.keys(ps_.scopeConfig||{}).length}</b><br/>
-        feeExists: <b>${ps_.feeExists}</b><br/>
-        wizardCfg: <b>${ps_.wizardCfg?JSON.stringify(ps_.wizardCfg).slice(0,80)+'…':'null'}</b><br/>
-        band (from IT load ${PROJECTS[id]?.it||'?'}MW): <b>${band_?.id||'?'} — ${band_?.label||'?'}</b><br/>
-        cfgSubConsultDefaults result: <b>${ps_.wizardCfg?cfgSubConsultDefaults(ps_.wizardCfg).join(', '):'no wizardCfg'}</b><br/>
-        cv-subconsult-wrap exists: <b>${!!document.getElementById('cv-subconsult-wrap-${id}')}</b><br/>
-        scope-panel exists: <b>${!!document.getElementById('scope-panel-${id}')}</b><br/>
-        UK_STAGES: <b>${UK_STAGES.map(s=>s.num).join(', ')}</b>
-      </div>`;
-    }
   });
-  // ── DEBUG PANEL (remove after troubleshooting) ──
-  const _dbg = document.getElementById('cv-debug-'+id);
-  if(_dbg) {
-    const ps_ = getPS(id);
-    const m_ = CFG_MATRIX;
-    const band_ = m_.bands.find(b=>PROJECTS[id]?.it>=b.min&&PROJECTS[id]?.it<b.max)||m_.bands[1];
-    _dbg.innerHTML = `<div style="margin-top:14px;padding:10px 12px;background:rgba(0,0,0,.05);border:1px solid var(--border);border-radius:6px;font-size:10px;font-family:monospace;line-height:1.7;color:var(--text2)">
-      <b>DEBUG — cover page state</b><br/>
-      stageFramework: <b>${ps_.stageFramework||'—'}</b><br/>
-      selStages: <b>${ps_.selStages?[...ps_.selStages].join(', '):'—'}</b> (size: ${ps_.selStages?.size??'no Set'})<br/>
-      subConsultants: <b>${(ps_.subConsultants||[]).join(', ')||'EMPTY'}</b><br/>
-      scopeConfig keys: <b>${Object.keys(ps_.scopeConfig||{}).length}</b><br/>
-      feeExists: <b>${ps_.feeExists}</b><br/>
-      wizardCfg: <b>${ps_.wizardCfg?JSON.stringify(ps_.wizardCfg).slice(0,80)+'…':'null'}</b><br/>
-      band (from IT load ${PROJECTS[id]?.it||'?'}MW): <b>${band_?.id||'?'} — ${band_?.label||'?'}</b><br/>
-      cfgSubConsultDefaults result: <b>${ps_.wizardCfg?cfgSubConsultDefaults(ps_.wizardCfg).join(', '):'no wizardCfg'}</b><br/>
-      cv-subconsult-wrap exists: <b>${!!document.getElementById('cv-subconsult-wrap-${id}')}</b><br/>
-      scope-panel exists: <b>${!!document.getElementById('scope-panel-${id}')}</b><br/>
-      UK_STAGES: <b>${UK_STAGES.map(s=>s.num).join(', ')}</b>
-    </div>`;
-  }
-}
 
 // Track which stage accordions are open across re-renders
 const SCOPE_OPEN_STAGES={};
@@ -6365,20 +6432,17 @@ function renderScopePanel(id){
     if(!stgItems.length&&!customs.length)return '';
 
     let stgY=0,stgN=0,stgTBC=0;
-    const activeSubs_=new Set(ps.subConsultants||[]);
     stgItems.forEach(({item,disc})=>{
-      const alwaysShow_=INHOUSE_DISCS.has(disc.disc)||(disc.disc==='Security / ICT / AV');
-      if(!alwaysShow_&&!activeSubs_.has(disc.disc))return;
-      const s=getScope(ps,item,stgNum);if(s==='Y')stgY++;else if(s==='N'||s==='EXCL')stgN++;else stgTBC++;
+      const s=getScope(ps,item,stgNum);
+      if(s==='Y')stgY++;else if(s==='N'||s==='EXCL')stgN++;else stgTBC++;
     });
     customs.forEach(c=>{if(c.state==='Y')stgY++;else if(c.state==='N'||c.state==='EXCL')stgN++;else stgTBC++;});
 
     const byDisc={};
     const activeSubs=new Set(ps.subConsultants||[]);
     stgItems.forEach(({item,disc,di,v})=>{
-      // Only show disc if it's in-house, always-shown (Security), or selected as sub-consultant
-      const alwaysShow=INHOUSE_DISCS.has(disc.disc)||(disc.disc==='Security / ICT / AV'&&(ps.securityMode||'inhouse')!=='');
-      if(!alwaysShow&&!activeSubs.has(disc.disc))return;
+      // Show ALL disciplines — sub-consultant selection affects default state not visibility
+      // LM can override any item regardless of sub-consultant selection
       if(!byDisc[disc.disc])byDisc[disc.disc]={disc,di,items:[]};
       byDisc[disc.disc].items.push({item,v});
     });
@@ -6439,10 +6503,10 @@ function renderScopePanel(id){
       if(dExcl)metaParts.push(`<span style="color:var(--coral)">${dExcl} excl</span>`);
       if(dTBC)metaParts.push(`<span style="color:var(--amber)">${dTBC} TBC</span>`);
 
-      const isSub=(ps.subConsultants||[]).includes(disc.disc)||(disc.disc==='Security / ICT / AV'&&(ps.securityMode==='sub'||ps.securityMode==='both'));
-      const isSecBoth=disc.disc==='Security / ICT / AV'&&ps.securityMode==='both';
+      const isSub=(ps.subConsultants||[]).includes(disc.disc)||(disc.disc==='Security / ICT'&&(ps.securityMode==='sub'||ps.securityMode==='both'));
+      const isSecBoth=disc.disc==='Security / ICT'&&ps.securityMode==='both';
       const subBadge=isSub?`<span style="font-size:9px;font-family:var(--fm);color:var(--purple);background:rgba(155,141,248,.15);padding:1px 6px;border-radius:3px;margin-left:4px">${isSecBoth?'In-house + Sub':'Sub'}</span>`:''
-        +(disc.disc==='Security / ICT / AV'&&ps.securityMode==='inhouse'?`<span style="font-size:9px;font-family:var(--fm);color:var(--accent2);background:rgba(141,198,63,.1);padding:1px 6px;border-radius:3px;margin-left:4px">In-house</span>`:'');
+        +(disc.disc==='Security / ICT'&&ps.securityMode==='inhouse'?`<span style="font-size:9px;font-family:var(--fm);color:var(--accent2);background:rgba(141,198,63,.1);padding:1px 6px;border-radius:3px;margin-left:4px">In-house</span>`:'');
 
       return `<div style="border-bottom:0.5px solid var(--border)">
         <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--bg4);cursor:pointer;user-select:none"
@@ -6496,7 +6560,7 @@ function renderScopePanel(id){
       <div class="scope-disc-hd" onclick="toggleScopeDiscEl('${bodyId}','${arrId}','${openKey}',false)">
         <div class="scope-disc-dot" style="background:${hex}"></div>
         <div class="scope-disc-name" style="color:${hex}">${stgLabel} — ${stg.name}</div>
-        <div class="scope-disc-meta">${stgItems.length} deliverables · ${metaBadge}</div>
+        <div class="scope-disc-meta">${stgY+stgN+stgTBC} deliverables · ${metaBadge}</div>
         <div class="scope-disc-arr${isOpen?' open':''}" id="${arrId}">&#x25B6;</div>
       </div>
       <div class="scope-disc-body${isOpen?' open':''}" id="${bodyId}">
@@ -6690,17 +6754,21 @@ function setCurFromCover(code){
 
 // ── Sub-consultant discipline checklist ──────────────────
 const SUB_CONSULT_DISCS=[
-  // Toggleable — only shown in scope when selected as sub-consultant
-  {name:'Architecture',color:'#9b8df8',inhouse:false},
-  {name:'Structural & Civil',color:'#f5a623',inhouse:false},
-  {name:'Fire & Life Safety',color:'#f05a4f',inhouse:false},
-  {name:'Acoustics',color:'#9b8df8',inhouse:false},
-  {name:'Flood Risk',color:'#4da6ff',inhouse:false},
-  {name:'Security / ICT / AV',color:'#4da6ff',inhouse:false}, // 3-state: handled by mkChip
-  // Always PPa in-house — always shown in scope, locked in checklist
-  {name:'MEP',color:'#8dc63f',inhouse:true},
-  {name:'CFD Analysis',color:'#1db8a0',inhouse:true},
-  {name:'BIM / Doc Control',color:'#8dc63f',inhouse:true},
+  // Sub-consultants — toggleable, shown when selected
+  {name:'Architecture',         color:'#888780',inhouse:false},
+  {name:'Structural & Civil',   color:'#f5a623',inhouse:false},
+  {name:'Fire & Life Safety',   color:'#f05a4f',inhouse:false},
+  {name:'Acoustics',            color:'#9b8df8',inhouse:false},
+  {name:'Flood Risk',           color:'#4da6ff',inhouse:false},
+  // LM-conditional — in-house or sub-consulted
+  {name:'Security / ICT',       color:'#f05a4f',inhouse:false,conditional:true},
+  // Always PPa in-house
+  {name:'Mechanical Engineering',color:'#4da6ff',inhouse:true},
+  {name:'Electrical Engineering',color:'#f5a623',inhouse:true},
+  {name:'Public Health',         color:'#1db8a0',inhouse:true},
+  {name:'CFD Analysis',          color:'#9b8df8',inhouse:true,conditional:true},
+  {name:'BIM Management',        color:'#8dc63f',inhouse:true},
+  {name:'Document Control',      color:'#8dc63f',inhouse:true},
 ];
 // Helper — discipline names that are always shown regardless of sub-consultant selection
 const INHOUSE_DISCS=new Set(SUB_CONSULT_DISCS.filter(d=>d.inhouse).map(d=>d.name));
@@ -6728,12 +6796,12 @@ function renderSubConsultWrap(id){
     style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:4px;cursor:pointer;margin:2px;transition:all .12s;
       border:1px solid ${secBorder[secMode]};background:${secBg[secMode]}">
     <div style="width:6px;height:6px;border-radius:50%;background:${secColors[secMode]};flex-shrink:0"></div>
-    <span style="font-size:11px;font-family:var(--fb);color:var(--text)">${'Security / ICT / AV'}</span>
+    <span style="font-size:11px;font-family:var(--fb);color:var(--text)">${'Security / ICT'}</span>
     <span style="font-size:9px;font-family:var(--fm);color:${secColors[secMode]};margin-left:2px">${secLabels[secMode]}</span>
   </div>`;
 
   const mkChip=(disc)=>{
-    if(disc.name==='Security / ICT / AV')return secChip;
+    if(disc.name==='Security / ICT')return secChip;
     const isSub=subs.includes(disc.name);
     if(disc.inhouse){return mkInhouseChip(disc);}
     return `<div onclick="toggleSubConsult('${id}','${disc.name}')"
@@ -6749,7 +6817,7 @@ function renderSubConsultWrap(id){
   const html=`<div style="display:flex;flex-wrap:wrap;gap:0;margin-top:2px">
     ${SUB_CONSULT_DISCS.map(mkChip).join('')}
   </div>
-  <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:5px">Click toggleable disciplines to mark as sub-consulted. Security / ICT / AV can be in-house, sub-consultant, or both.</div>`;
+  <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:5px">Click toggleable disciplines to mark as sub-consulted. Security / ICT can be in-house, sub-consultant, or both.</div>`;
 
   // Render into Overview wrap if present
   const ovWrap=document.getElementById('ov-subconsult-wrap');
@@ -6780,7 +6848,7 @@ function getActiveSubs(id){
   const ps=getPS(id);
   const subs=[...(ps.subConsultants||[])];
   const sm=ps.securityMode||'inhouse';
-  if(sm==='sub'||sm==='both')subs.unshift('Security / ICT / AV');
+  if(sm==='sub'||sm==='both')subs.unshift('Security / ICT');
   return subs;
 }
 function getSubFee(ps,disc){
@@ -7597,7 +7665,7 @@ function renderProposalSummary(id){
         <div class="ps-kv"><div class="ps-kv-l">IT load</div><div class="ps-kv-v">${p.it?p.it+' MW IT':'—'}</div></div>
         <div class="ps-kv"><div class="ps-kv-l">Bid type</div><div class="ps-kv-v">${p.btype||'—'}</div></div>
         <div class="ps-kv"><div class="ps-kv-l">Rate type</div><div class="ps-kv-v">${p.rtype||'—'}</div></div>
-        <div class="ps-kv"><div class="ps-kv-l">Sub-consultants</div><div class="ps-kv-v">${(()=>{const subs=[...(ps.subConsultants||[])];const sm=ps.securityMode||'inhouse';if(sm==='sub'||sm==='both')subs.unshift('Security / ICT / AV'+(sm==='both'?' (In-house + Sub)':''));return subs.length?subs.join(', '):'PPa in-house only';})()}</div></div>
+        <div class="ps-kv"><div class="ps-kv-l">Sub-consultants</div><div class="ps-kv-v">${(()=>{const subs=[...(ps.subConsultants||[])];const sm=ps.securityMode||'inhouse';if(sm==='sub'||sm==='both')subs.unshift('Security / ICT'+(sm==='both'?' (In-house + Sub)':''));return subs.length?subs.join(', '):'PPa in-house only';})()}</div></div>
       </div>
       ${p.brief?`<div style="background:var(--bg3);border-radius:5px;padding:10px 12px;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.6">${p.brief}</div>`:''}
     </div>
@@ -8237,7 +8305,7 @@ function exportPSSummaryPDF(id){
         <div class="kv"><div class="kv-l">IT load</div><div class="kv-v">${p.it?p.it+' MW IT':'—'}</div></div>
         <div class="kv"><div class="kv-l">Bid type</div><div class="kv-v">${p.btype||'—'}</div></div>
         <div class="kv"><div class="kv-l">Rate type</div><div class="kv-v">${p.rtype||'—'}</div></div>
-        <div class="kv"><div class="kv-l">Sub-consultants</div><div class="kv-v">${(()=>{const subs=[...(ps.subConsultants||[])];const sm=ps.securityMode||'inhouse';if(sm==='sub'||sm==='both')subs.unshift('Security / ICT / AV'+(sm==='both'?' (In-house + Sub)':''));return subs.length?subs.join(', '):'PPa in-house only';})()}</div></div>
+        <div class="kv"><div class="kv-l">Sub-consultants</div><div class="kv-v">${(()=>{const subs=[...(ps.subConsultants||[])];const sm=ps.securityMode||'inhouse';if(sm==='sub'||sm==='both')subs.unshift('Security / ICT'+(sm==='both'?' (In-house + Sub)':''));return subs.length?subs.join(', '):'PPa in-house only';})()}</div></div>
       </div>
       ${p.brief?`<div class="brief">${p.brief}</div>`:''}
 
