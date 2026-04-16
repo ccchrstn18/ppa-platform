@@ -3058,6 +3058,24 @@ function getPS(id){
     securityMode:'inhouse',
     subFees:{},   // discName -> {fee, model, markup}  model: markup|passthrough|provisional|direct // 'inhouse' | 'sub' | 'both'              // roleId -> number (default 1)
   };
+  // Ensure critical fields always exist (handles PER_PROJ[id]={} case)
+  const _ps = PER_PROJ[id];
+  if(!_ps.selStages || typeof _ps.selStages.has !== 'function') _ps.selStages = new Set(['2','3','4']);
+  if(!_ps.selRoles  || typeof _ps.selRoles.has  !== 'function') _ps.selRoles  = new Set();
+  if(!_ps.manCellsSet || typeof _ps.manCellsSet.has !== 'function') _ps.manCellsSet = new Set();
+  if(!_ps.feeVals)     _ps.feeVals     = {};
+  if(!_ps.feeWkVals)   _ps.feeWkVals   = {};
+  if(!_ps.scopeConfig) _ps.scopeConfig  = {};
+  if(!_ps.scopeNotes)  _ps.scopeNotes   = {};
+  if(!_ps.customDeliverables) _ps.customDeliverables = [];
+  if(!_ps.subConsultants)     _ps.subConsultants     = [];
+  if(!_ps.subFees)     _ps.subFees      = {};
+  if(!_ps.reviewWks)   _ps.reviewWks    = {};
+  if(!_ps.milestones)  _ps.milestones   = [];
+  if(!_ps.stageData)   _ps.stageData    = {};
+  if(!_ps.stageFramework) _ps.stageFramework = 'riba';
+  if(!_ps.currency)    _ps.currency     = 'GBP';
+  if(!_ps.startDate)   _ps.startDate    = '2026-06-01';
   return PER_PROJ[id];
 }
 
@@ -3098,8 +3116,8 @@ function scopeDefault(item,selStages){
 // Get effective scope state for an item at a specific stage
 function getScope(ps,item,stageNum){
   const key=`${item.id}:${stageNum}`;
-  if(ps.scopeConfig[key]!==undefined)return ps.scopeConfig[key];
-  // Default: Out — user must explicitly mark items In
+  if(ps.scopeConfig&&ps.scopeConfig[key]!==undefined)return ps.scopeConfig[key];
+  // Default: N — user must explicitly mark items In
   return 'N';
 }
 
@@ -5995,6 +6013,7 @@ function renderBidSection(id){
 }
 function feeHasValues(id){
   const ps=getPS(id);if(!ps.feeExists)return false;
+  if(!ps.feeVals||typeof ps.feeVals!=='object')return false;
   return Object.keys(ps.feeVals).some(rid=>Object.values(ps.feeVals[rid]||{}).some(v=>v>0));
 }
 
