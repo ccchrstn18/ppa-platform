@@ -2694,10 +2694,26 @@ function cfgApplyHours(projectId, result, cfg) {
     ps.selStages = new Set(cfg.stages.map(s=>_wizardToRiba[s]).filter(Boolean));
   }
 
-  // Write hours grid
+  // Write hours grid to both ps.hours (raw) and ps.feeVals (fee calculator format)
   if(!ps.hours) ps.hours = {};
+  if(!ps.feeVals) ps.feeVals = {};
+  // Map wizard stage IDs to fee calculator stage keys
+  const _sidToFeeKey = isUKfw
+    ? {S1:'brief',TF:'tf',S2:'cd',S3:'sd',S4:'dd',S5:'ca'}
+    : {S1:1,TF:1,S2:2,S3:3,S4:4,S5:5};
+
   result.stageResults.forEach(r=>{
     ps.hours[r.sid] = {...r.roles};
+    // Write to feeVals using the key format the fee calculator reads
+    const feeKey = _sidToFeeKey[r.sid];
+    if(feeKey !== undefined) {
+      Object.entries(r.roles).forEach(([rid, hrs])=>{
+        if(hrs > 0) {
+          if(!ps.feeVals[rid]) ps.feeVals[rid] = {};
+          ps.feeVals[rid][feeKey] = hrs;
+        }
+      });
+    }
   });
 
   // Apply scope intelligence defaults from wizard config
@@ -2713,6 +2729,12 @@ function cfgApplyHours(projectId, result, cfg) {
   // Sub-consultant defaults from band (only on fresh generate)
   if(!ps.subConsultants || ps.subConsultants.length === 0) {
     ps.subConsultants = cfgSubConsultDefaults(cfg);
+  }
+  // Add ICT/Security roles to selRoles if selected as in-house on cover page
+  // (Quick estimate doesn't calculate these — LM enters hours manually in fee calculator)
+  const _secMode_ = ps.securityMode || 'inhouse';
+  if(_secMode_ === 'inhouse' || _secMode_ === 'both') {
+    ['ict_lead','ict_assoc','sec_lead','sec_assoc'].forEach(rid => ps.selRoles.add(rid));
   }
   // State is saved by cfgGenerate after projects row is confirmed written
 
@@ -6841,6 +6863,14 @@ function cycleSecurityMode(id){
   const modes=['inhouse','sub','both'];
   const cur=ps.securityMode||'inhouse';
   ps.securityMode=modes[(modes.indexOf(cur)+1)%3];
+  // Add/remove ICT+Security roles from selRoles based on new mode
+  const _newMode = ps.securityMode;
+  if(_newMode === 'inhouse' || _newMode === 'both') {
+    ['ict_lead','ict_assoc','sec_lead','sec_assoc'].forEach(rid => ps.selRoles.add(rid));
+  } else if(_newMode === 'sub') {
+    ['ict_lead','ict_assoc','ict_prin','ict_sr','ict_eng',
+     'sec_lead','sec_assoc','sec_prin','sec_sr','sec_eng'].forEach(rid => ps.selRoles.delete(rid));
+  }
   mu();renderSubConsultWrap(id);renderScopePanel(id);
 }
 
@@ -7133,7 +7163,7 @@ function updateRoleQtyDisplay(id,rid,q){
   if(el)el.textContent=q>1?`×${q}`:'';
 }
 function getStageVal(ps,rid,snum){
-  if(ps.feeVals[rid]&&ps.feeVals[rid][snum]!==undefined)return ps.feeVals[rid][snum];
+  if(ps.feeVals&&ps.feeVals[rid]&&ps.feeVals[rid][snum]!==undefined)return ps.feeVals[rid][snum];
   return 0; // always start at 0
 }
 function setStageVal(ps,rid,snum,val){if(!ps.feeVals[rid])ps.feeVals[rid]={};ps.feeVals[rid][snum]=val;}
@@ -7198,7 +7228,7 @@ function rebuildFee(id){
 
   let B=`<tbody>`;let grandHrs=0,grandFee=0;const stTot={};
   const _secMode=ps.securityMode||'inhouse';
-  const _hideSecDiscs=_secMode==='sub';
+  const _hideSecDiscs=_secMode==='sub'; // hide rows only when fully sub-consulted (not both/inhouse)
   DISC.forEach(disc=>{
     if(_hideSecDiscs&&(disc.k==='ict'||disc.k==='sec'))return;
     const dr=disc.r.filter(r=>ps.selRoles.has(r.id));if(!dr.length)return;
