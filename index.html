@@ -2819,6 +2819,7 @@ function cfgApplyHours(projectId, result, cfg) {
   result.stageResults.forEach(r=>Object.keys(r.roles).forEach(k=>{ if(r.roles[k]>0) roleSet.add(k); }));
   ps.selRoles = roleSet;
   ps.feeExists = true;
+  ps.cvVisited = true;  // wizard has configured cover page — unlock fee calc and programme
 
   // Warn if overwriting existing manual fee edits
   const _hasManuFee = ps.feeExists && Object.keys(ps.feeVals||{}).length > 0;
