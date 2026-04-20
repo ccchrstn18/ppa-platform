@@ -84,7 +84,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
 .kcol.ccl .kh{border-bottom-color:rgba(240,90,79,.15)}
 .kl2{font-size:10px;font-family:var(--fm);font-weight:500;letter-spacing:1px;text-transform:uppercase}
 .kc{font-size:10px;font-family:var(--fm);color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:8px}
-.cnew .kl2{color:var(--text2)}.cct .kl2{color:var(--blue)}.cop .kl2{color:var(--amber)}.cpr .kl2{color:var(--purple)}.clv .kl2{color:var(--accent)}.ccl .kl2{color:var(--coral)}
+.cnew .kl2{color:var(--text2)}.cct .kl2{color:var(--blue)}.cop .kl2{color:var(--amber)}.cpr .kl2{color:var(--purple)}.cng .kl2{color:var(--amber)}.clv .kl2{color:var(--teal)}.ccl .kl2{color:var(--coral)}
 .kb{padding:7px;display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto;min-height:0}
 .card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:9px;cursor:pointer;transition:all .12s}
 .card:hover{border-color:var(--border2);box-shadow:0 2px 8px var(--sh)}
@@ -128,6 +128,60 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
 .sp-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}
 .sp-msg{font-size:11px;font-family:var(--fm);padding:5px 10px;border-radius:4px;margin-top:8px;display:none}
 .sp-msg.on{display:block}
+.ops-filter-btn{padding:4px 10px;font-size:11px;font-family:var(--fm);border-radius:20px;background:var(--bg3);color:var(--text3);cursor:pointer;border:1px solid transparent;transition:all .12s;user-select:none}
+.ops-filter-btn:hover{color:var(--text2);border-color:var(--border)}
+.ops-filter-btn.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+.ops-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:box-shadow .15s,border-color .15s;display:flex;flex-direction:column;gap:10px}
+.ops-card:hover{border-color:var(--teal);box-shadow:0 2px 12px var(--sh)}
+.ops-phase-badge{font-size:9px;font-family:var(--fm);padding:2px 7px;border-radius:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.ops-phase-design{background:rgba(72,160,220,.15);color:var(--blue)}
+.ops-phase-construction{background:rgba(230,160,40,.15);color:var(--amber)}
+.ops-phase-handover{background:rgba(141,198,63,.15);color:var(--accent)}
+.ops-phase-complete{background:var(--bg4);color:var(--text3)}
+.ops-rag{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ops-rag-green{background:var(--accent)}
+.ops-rag-amber{background:var(--amber)}
+.ops-rag-red{background:var(--coral)}
+.opsd-tab{padding:9px 14px;font-size:11px;cursor:pointer;color:var(--text3);font-family:var(--fm);border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap;user-select:none}
+.opsd-tab.on{color:var(--teal);border-bottom-color:var(--teal)}
+.opsd-tab:hover:not(.on){color:var(--text2)}
+.ops-stat-row{display:flex;gap:8px;margin-bottom:12px}
+.ops-stat{flex:1;background:var(--bg3);border-radius:8px;padding:10px 12px}
+.ops-stat-val{font-size:18px;font-weight:700;color:var(--text)}
+.ops-stat-lbl{font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:2px}
+.ops-role-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.ops-role-row:last-child{border-bottom:none}
+.ops-bar-wrap{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.ops-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.ops-prog-phase{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px}
+.stage-prog-bar{display:flex;gap:4px;margin:12px 0}
+.stage-prog-step{flex:1;height:6px;border-radius:3px;background:var(--bg4);transition:background .2s}
+.stage-prog-step.done{background:var(--teal)}
+.stage-prog-step.active{background:var(--amber)}
+/* ── Utilisation timeline ── */
+.util-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.util-toolbar{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.util-nav-btn{padding:4px 10px;font-size:11px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;transition:all .12s}
+.util-nav-btn:hover{background:var(--bg4)}
+.util-body{flex:1;overflow:auto;position:relative}
+.util-grid{display:grid;min-width:max-content}
+.util-header-row{display:contents}
+.util-person-col{position:sticky;left:0;z-index:10;background:var(--bg2);border-right:1px solid var(--border)}
+.util-week-cell{min-width:52px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.util-week-cell.today-col{background:rgba(29,184,160,.04)}
+.util-week-cell.today-col::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--teal)}
+.util-person-header{padding:0 12px;height:38px;display:flex;align-items:center;font-size:11px;font-weight:700;color:var(--text2);background:var(--bg3);border-bottom:2px solid var(--border);white-space:nowrap;min-width:160px}
+.util-week-header{height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 4px;background:var(--bg3);border-bottom:2px solid var(--border);border-right:1px solid var(--border)}
+.util-person-row{display:contents}
+.util-person-label{padding:0 12px;height:52px;display:flex;flex-direction:column;justify-content:center;gap:2px;background:var(--bg2);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;min-width:160px;cursor:pointer}
+.util-person-label:hover{background:var(--bg3)}
+.util-alloc-bar{position:absolute;top:4px;left:1px;right:1px;bottom:4px;border-radius:3px;display:flex;align-items:center;padding:0 4px;font-size:9px;font-family:var(--fm);color:#fff;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;transition:opacity .15s}
+.util-alloc-bar:hover{opacity:.85}
+.util-cap-bar{position:absolute;bottom:2px;left:1px;right:1px;height:3px;border-radius:2px;background:var(--bg4)}
+.util-cap-fill{height:100%;border-radius:2px;transition:width .3s}
+.util-over-cap{background:var(--coral)!important}
+.util-legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:10px;font-family:var(--fm);color:var(--text3)}
+.util-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .sp-warn{background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.25)}
 .sp-block{background:rgba(240,90,79,.08);color:var(--coral);border:1px solid rgba(240,90,79,.2)}
 .sp-ok{background:rgba(141,198,63,.08);color:var(--accent2);border:1px solid rgba(141,198,63,.2)}
@@ -387,8 +441,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
 .lv-att-dot.filled{background:var(--amber);border-color:var(--amber)}
 .lv-att-dot.max{background:var(--coral);border-color:var(--coral)}
 /* view panels */
-#view-pipeline,#view-leads,#view-opps,#view-props,#view-dash{display:none}
-#view-pipeline.active,#view-leads.active,#view-opps.active,#view-props.active,#view-dash.active{display:block}
+#view-pipeline,#view-leads,#view-opps,#view-props,#view-dash,#view-projects,#view-utilisation{display:none}
+#view-pipeline.active,#view-leads.active,#view-opps.active,#view-props.active,#view-dash.active,#view-projects.active,#view-utilisation.active{display:block}
 
 /* ── SCOPE PANEL ── */
 .scope-panel{margin-top:4px}
@@ -679,8 +733,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
   <div class="nav" id="nav-props" onclick="switchView('props')"><span class="ndot"></span>Proposals<span class="nbadge" id="sb-props">0</span></div>
   <div class="nav" id="nav-dash" onclick="switchView('dash')"><span class="ndot" style="background:var(--accent)"></span>Sales Dashboard</div>
   <div class="sb-s">Operations</div>
-  <div class="nav" style="opacity:.4;cursor:not-allowed" title="Coming soon"><span class="ndot"></span>Projects<span class="nbadge" style="font-size:9px;background:var(--bg4);color:var(--text3)">Soon</span></div>
-  <div class="nav" style="opacity:.4;cursor:not-allowed" title="Coming soon"><span class="ndot"></span>Utilisation<span class="nbadge" style="font-size:9px;background:var(--bg4);color:var(--text3)">Soon</span></div>
+  <div class="nav" id="nav-projects" onclick="switchView('projects')"><span class="ndot" style="background:var(--teal)"></span>Projects<span class="nbadge" id="sb-projects">0</span></div>
+  <div class="nav" id="nav-utilisation" onclick="switchView('utilisation')"><span class="ndot" style="background:var(--blue)"></span>Utilisation<span class="nbadge" id="sb-utilisation">0</span></div>
   <div class="nav" style="opacity:.4;cursor:not-allowed" title="Coming soon"><span class="ndot"></span>Deliverables<span class="nbadge" style="font-size:9px;background:var(--bg4);color:var(--text3)">Soon</span></div>
   <div class="sb-s">Finance</div>
   <div class="nav" style="opacity:.4;cursor:not-allowed" title="Coming soon"><span class="ndot"></span>Dashboard<span class="nbadge" style="font-size:9px;background:var(--bg4);color:var(--text3)">Soon</span></div>
@@ -786,10 +840,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
         <div class="kv" style="color:var(--purple)" id="kpi2">—</div>
         <div class="ks">awaiting decision</div>
       </div>
-      <div class="kpi">
+      <div class="kpi" style="cursor:pointer" onclick="switchView('projects')" title="Open Operations — Projects">
         <div class="kl">Live projects</div>
-        <div class="kv" style="color:var(--accent)" id="kpi3">—</div>
-        <div class="ks" id="kpi3s">secured</div>
+        <div class="kv" style="color:var(--teal)" id="kpi3">—</div>
+        <div class="ks" id="kpi3s">secured · <span style="color:var(--teal)">view →</span></div>
       </div>
     </div>
 
@@ -1005,6 +1059,92 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
     </div>
 
   <div id="view-dash" style="padding:20px;overflow-y:auto;flex:1;min-height:0"><div id="dash-content"></div></div>
+
+  <!-- ── OPERATIONS: PROJECTS VIEW ── -->
+  <div id="view-projects" style="display:none;flex-direction:column;height:100%;overflow:hidden">
+    <div style="padding:16px 20px 0;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:11px;font-family:var(--fm);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Live Projects</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="ops-filter-bar">
+          <div class="ops-filter-btn on" data-filter="all" onclick="opsSetFilter('all')">All</div>
+          <div class="ops-filter-btn" data-filter="design" onclick="opsSetFilter('design')">Design</div>
+          <div class="ops-filter-btn" data-filter="construction" onclick="opsSetFilter('construction')">Construction Support</div>
+          <div class="ops-filter-btn" data-filter="handover" onclick="opsSetFilter('handover')">Handover</div>
+          <div class="ops-filter-btn" data-filter="complete" onclick="opsSetFilter('complete')">Complete</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="ops-search" type="text" placeholder="Search projects…" oninput="renderOpsProjects()" style="padding:6px 10px;font-size:12px;font-family:var(--fm);background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);width:180px;outline:none">
+        <span id="ops-count" style="font-size:11px;font-family:var(--fm);color:var(--text3)">0 projects</span>
+      </div>
+    </div>
+    <div id="ops-projects-grid" style="flex:1;overflow-y:auto;padding:16px 20px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-content:start"></div>
+    <div id="ops-empty" style="display:none;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3);font-family:var(--fm);font-size:13px;gap:8px">
+      <div style="font-size:32px">📋</div>
+      <div style="font-weight:600;color:var(--text2)">No live projects yet</div>
+      <div>Mark a deal as Live from the Sales Pipeline to see it here</div>
+    </div>
+  </div>
+
+  <!-- ── OPERATIONS: PROJECT DETAIL PANEL (right slide-in) ── -->
+  <div id="ops-detail-panel" style="display:none;position:fixed;top:0;right:0;width:560px;height:100vh;background:var(--bg);border-left:1px solid var(--border);z-index:300;flex-direction:column;overflow:hidden;box-shadow:-4px 0 24px var(--sh)">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button onclick="closeOpsDetail()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">←</button>
+      <div style="flex:1;min-width:0">
+        <div id="opsd-title" style="font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+        <div id="opsd-sub" style="font-size:11px;font-family:var(--fm);color:var(--text3)">—</div>
+      </div>
+      <div id="opsd-phase-badge" style="font-size:10px;font-family:var(--fm);padding:3px 8px;border-radius:20px;background:var(--bg3);color:var(--text2)">—</div>
+    </div>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div class="opsd-tab on" data-tab="overview" onclick="opsDetailTab('overview')">Overview</div>
+      <div class="opsd-tab" data-tab="team" onclick="opsDetailTab('team')">Team & Budget</div>
+      <div class="opsd-tab" data-tab="programme" onclick="opsDetailTab('programme')">Programme</div>
+    </div>
+    <div id="opsd-content" style="flex:1;overflow-y:auto;padding:16px"></div>
+  </div>
+
+  <!-- ── UTILISATION VIEW ── -->
+  <div id="view-utilisation" style="display:none;flex-direction:column;height:100%;overflow:hidden">
+    <div class="util-wrap">
+      <div class="util-toolbar">
+        <button class="util-nav-btn" onclick="utilShift(-4)">◀◀</button>
+        <button class="util-nav-btn" onclick="utilShift(-1)">◀</button>
+        <button class="util-nav-btn" onclick="utilGoToday()" style="font-weight:700;color:var(--teal);border-color:var(--teal)">Today</button>
+        <button class="util-nav-btn" onclick="utilShift(1)">▶</button>
+        <button class="util-nav-btn" onclick="utilShift(4)">▶▶</button>
+        <div id="util-range-label" style="font-size:12px;font-family:var(--fm);color:var(--text2);margin:0 4px"></div>
+        <div style="flex:1"></div>
+        <div style="font-size:11px;font-family:var(--fm);color:var(--text3)">Showing</div>
+        <select id="util-weeks-select" onchange="utilSetWeeks(parseInt(this.value))" style="font-size:11px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);padding:3px 6px">
+          <option value="4">4 weeks</option>
+          <option value="8" selected>8 weeks</option>
+          <option value="12">12 weeks</option>
+          <option value="16">16 weeks</option>
+        </select>
+        <div style="font-size:11px;font-family:var(--fm);color:var(--text3);margin-left:8px">Filter</div>
+        <select id="util-filter-select" onchange="renderUtilisation()" style="font-size:11px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);padding:3px 6px">
+          <option value="all">All engineers</option>
+          <option value="over">Over capacity only</option>
+          <option value="assigned">Assigned only</option>
+        </select>
+      </div>
+      <div class="util-body" id="util-body">
+        <div id="util-grid-wrap"></div>
+      </div>
+      <div style="padding:8px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-shrink:0">
+        <div class="util-legend">
+          <div style="display:flex;align-items:center;gap:4px"><div class="util-legend-dot" style="background:var(--teal)"></div>On track</div>
+          <div style="display:flex;align-items:center;gap:4px"><div class="util-legend-dot" style="background:var(--amber)"></div>85–100% capacity</div>
+          <div style="display:flex;align-items:center;gap:4px"><div class="util-legend-dot" style="background:var(--coral)"></div>Over capacity</div>
+          <div style="display:flex;align-items:center;gap:4px"><div class="util-legend-dot" style="background:var(--bg4);border:1px solid var(--border)"></div>No allocation</div>
+        </div>
+        <div style="flex:1"></div>
+        <div id="util-summary" style="font-size:11px;font-family:var(--fm);color:var(--text3)"></div>
+      </div>
+    </div>
+  </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -1072,6 +1212,7 @@ function pipeToRow(id){
     attempts:pipe.attempts||0,
     qual_score:pipe.qualScore??null,
     closed_reason:pipe.closedReason||null,
+    live_date:pipe.liveDate||null,
   };
 }
 
@@ -1102,6 +1243,9 @@ function stateToRow(id){
     security_mode: ps.securityMode || 'ppa_delivered',
     milestones:   ps.milestones || [],
     stage_data:   ps.stageData || {},
+    ops_phase:    ps.opsPhase || 'design',
+    last_reviewed_at: ps.lastReviewedAt || null,
+    ops_notes:    ps.opsNotes || null,
   };
 }
 
@@ -1130,6 +1274,7 @@ function rowToPipe(row){
     attempts:row.attempts||0,
     qualScore:row.qual_score??null,
     closedReason:row.closed_reason||null,
+    liveDate:row.live_date||null,
   };
 }
 
@@ -1158,6 +1303,9 @@ function rowToState(row){
     securityMode: row.security_mode||'ppa_delivered',
     milestones:  row.milestones||[],
     stageData:   row.stage_data||{},
+    opsPhase:    row.ops_phase||'design',
+    lastReviewedAt: row.last_reviewed_at||null,
+    opsNotes:    row.ops_notes||null,
   };
 }
 
@@ -1240,8 +1388,28 @@ async function loadFromSupabase(){
       supa.from('pipeline').select('*'),
       supa.from('project_state').select('*'),
       supa.from('stage_history').select('project_id,stage,entered_at,user_email').order('entered_at',{ascending:true}),
+      supa.from('ops_allocations').select('*'),
+      supa.from('profiles').select('id,name,initials,role,region'),
     ]);
-    const [{data:proj,error:e1},{data:pipe,error:e2},{data:state,error:e3},{data:hist,error:e4}] = await Promise.race([queries, timeout]);
+    const [{data:proj,error:e1},{data:pipe,error:e2},{data:state,error:e3},{data:hist,error:e4},{data:allocs,error:e5},{data:profs,error:e6}] = await Promise.race([queries, timeout]);
+    if(e1||e2||e3) throw new Error((e1||e2||e3).message);
+    // Load stage history into memory
+    if(hist&&!e4){
+      hist.forEach(h=>{
+        if(!STAGE_HISTORY[h.project_id]) STAGE_HISTORY[h.project_id]=[];
+        STAGE_HISTORY[h.project_id].push({stage:h.stage,entered_at:h.entered_at,user_email:h.user_email});
+      });
+    }
+    // Load ops allocations into memory
+    OPS_ALLOCS={};
+    if(allocs&&!e5){
+      allocs.forEach(a=>{
+        if(!OPS_ALLOCS[a.project_id]) OPS_ALLOCS[a.project_id]=[];
+        OPS_ALLOCS[a.project_id].push(a);
+      });
+    }
+    // Cache profiles for assignment dropdowns
+    if(profs&&!e6) _allProfiles=profs;
     if(e1||e2||e3) throw new Error((e1||e2||e3).message);
     // Load stage history into memory
     if(hist&&!e4){
@@ -1467,6 +1635,12 @@ async function _handleAuthUser(user) {
     const {data} = await supa.from('profiles').select('*').eq('id', user.id).single();
     currentProfile = data || null;
   } catch(e) { currentProfile = null; }
+
+  // Load all profiles for allocation dropdowns (non-blocking)
+  try {
+    const {data:allP} = await supa.from('profiles').select('id,name,initials,role,region');
+    if(allP) _allProfiles=allP;
+  } catch(e) { /* non-critical */ }
 
   updateUserBadge(currentProfile, user);
   const _cs = document.getElementById('currency-switcher');
@@ -3396,6 +3570,8 @@ function rank(s){return STAGE_RANK[s]??0;}
 let PROJECTS={};
 let PIPE={};
 let PER_PROJ={};
+let OPS_ALLOCS={};  // keyed by project_id → array of allocation objects
+let _allProfiles=[];// cached profiles list for person assignment dropdown
 let curCode='GBP';
 let FX={GBP:1,AED:4.73,EUR:1.17,USD:1.27,SAR:4.75};
 let unsaved=false;
@@ -6409,7 +6585,7 @@ function renderStagePanel(id){
   const acts=document.getElementById('sp-acts');
   const msg=document.getElementById('sp-msg');
   msg.className='sp-msg';msg.textContent='';
-  const cols={'New Lead':'var(--text2)','Att. to contact':'var(--amber)','Contacted':'var(--blue)','Information Pending':'var(--amber)','Qualified':'var(--accent)','In Assessment':'var(--accent)','Proposal':'var(--purple)','Live':'var(--accent)','Closed Lead':'var(--coral)'};
+  const cols={'New Lead':'var(--text2)','Att. to contact':'var(--amber)','Contacted':'var(--blue)','Information Pending':'var(--amber)','Qualified':'var(--accent)','In Assessment':'var(--accent)','Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
   label.textContent=stage;label.style.color=cols[stage]||'var(--text)';acts.innerHTML='';
 
   if(stage==='New Lead'){
@@ -6453,12 +6629,20 @@ function renderStagePanel(id){
     }
 
   }else if(stage==='Proposal'){
-    info.textContent='Proposal submitted — awaiting decision';
-    acts.innerHTML=`<button class="btn bp bsm" onclick="markLive('${id}')">Mark as Won / Live ✓</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead (not awarded)</button>`;
+    info.textContent='Proposal submitted — awaiting client decision';
+    acts.innerHTML=`<button class="btn bp bsm" onclick="advanceToNegotiation('${id}')">Advance to Negotiation →</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead (not awarded)</button>`;
+    msg.className='sp-msg sp-ok on';msg.textContent='Proposal is out. Move to Negotiation once the client engages on terms, or mark Lost if not awarded.';
+
+  }else if(stage==='Negotiation'){
+    info.textContent='In negotiation — finalising terms & fee';
+    acts.innerHTML=`<button class="btn bp bsm" onclick="markLive('${id}')" style="background:var(--teal);border-color:var(--teal)">🎉 Mark as Won — Go Live</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead (not awarded)</button>`;
+    msg.className='sp-msg sp-ok on';msg.textContent='Mark as Won once the contract is signed and the project is ready to hand over to Operations.';
 
   }else if(stage==='Live'){
     info.textContent='Active project — in delivery';
-    acts.innerHTML=`<span style="font-size:11px;font-family:var(--fm);color:var(--accent2)">→ Manage in Operations module</span>`;
+    const fee=getFeeTotal(id);const feeStr=fee>0?` · £${(fee/1000).toFixed(0)}k`:'';
+    acts.innerHTML=`<button class="btn bp bsm" onclick="switchView('projects')" style="background:var(--teal);border-color:var(--teal)">→ Open in Operations</button><button class="btn bg bsm" onclick="openOpsDetail('${id}')">View project detail</button>`;
+    msg.className='sp-msg sp-ok on';msg.textContent='This project is live${feeStr}. Manage delivery schedule and team allocation in the Operations module.';
 
   }else if(stage==='Closed Lead'){
     info.textContent=pipe.closedReason?'Reason: '+pipe.closedReason:'Closed';
@@ -6486,8 +6670,869 @@ function missingTabsList(id){
 
 function advanceToProposal(id){getPipe(id).stage='Proposal';moveCardToCol(id,'cpr');updateAll(id);logStageChange(id,'Proposal');toast('Advanced to Proposal stage');}
 function advanceToNegotiation(id){getPipe(id).stage='Negotiation';moveCardToCol(id,'cng');updateAll(id);logStageChange(id,'Negotiation');toast('Advanced to Negotiation');}
-function markLive(id){getPipe(id).stage='Live';moveCardToCol(id,'clv');updateAll(id);logStageChange(id,'Live');toast('Congratulations — marked as Live!');}
+function markLive(id){
+  const p=getPipe(id);
+  p.stage='Live';
+  p.liveDate=new Date().toISOString();
+  moveCardToCol(id,'clv');
+  updateAll(id);
+  logStageChange(id,'Live');
+  updateListBadges();
+  // Auto-generate delivery schedule from bid hours
+  generateOpsAllocations(id).catch(e=>console.warn('Alloc gen failed:',e));
+  toast('🎉 Congratulations — project marked as Live!');
+  setTimeout(()=>{
+    const go=confirm('Project is now Live! Open the Operations module to manage delivery?');
+    if(go) switchView('projects');
+  },600);
+}
 function reOpenLead(id){const p=getPipe(id);p.stage='New Lead';p.attempts=0;p.closedReason=null;moveCardToCol(id,'cnew');updateAll(id);logStageChange(id,'New Lead');toast('Lead re-opened');}
+
+// ── FEE TOTAL HELPER ──────────────────────────────────────
+function getFeeTotal(id){
+  const ps=getPS(id);
+  if(!ps||!ps.feeVals)return 0;
+  let total=0;
+  try{
+    const cfg=ps._lastFeeCfg||null;
+    if(cfg&&cfg._preview&&cfg._preview.grandTotal)return cfg._preview.grandTotal;
+    // fallback: sum all feeVals entries
+    Object.values(ps.feeVals).forEach(stageObj=>{
+      if(typeof stageObj==='object')Object.values(stageObj).forEach(v=>{if(typeof v==='number')total+=v*96;});
+    });
+  }catch(e){}
+  return total;
+}
+
+function getOpsPhase(id){
+  const ps=getPS(id);
+  return (ps&&ps.opsPhase)||'design';
+}
+
+// ══ OPERATIONS MODULE ═════════════════════════════════════
+let opsCurrentFilter='all';
+let opsOpenProjectId=null;
+
+const OPS_PHASE_LABELS={
+  design:'Design',
+  construction:'Construction Support',
+  handover:'Handover / Closeout',
+  complete:'Complete'
+};
+const OPS_PHASE_CLASS={
+  design:'ops-phase-design',
+  construction:'ops-phase-construction',
+  handover:'ops-phase-handover',
+  complete:'ops-phase-complete'
+};
+
+function opsSetFilter(f){
+  opsCurrentFilter=f;
+  document.querySelectorAll('.ops-filter-btn').forEach(b=>b.classList.toggle('on',b.dataset.filter===f));
+  renderOpsProjects();
+}
+
+function renderOpsProjects(){
+  const grid=document.getElementById('ops-projects-grid');
+  const empty=document.getElementById('ops-empty');
+  const countEl=document.getElementById('ops-count');
+  if(!grid)return;
+
+  const q=(document.getElementById('ops-search')?.value||'').toLowerCase();
+  let ids=Object.keys(PROJECTS).filter(id=>getPipe(id).stage==='Live');
+
+  if(opsCurrentFilter!=='all')ids=ids.filter(id=>getOpsPhase(id)===opsCurrentFilter);
+  if(q)ids=ids.filter(id=>{
+    const p=PROJECTS[id];
+    return(p.name||'').toLowerCase().includes(q)||(p.client||'').toLowerCase().includes(q)||(p.ref||'').toLowerCase().includes(q)||(p.loc||'').toLowerCase().includes(q);
+  });
+
+  if(countEl)countEl.textContent=ids.length+' project'+(ids.length!==1?'s':'');
+
+  if(ids.length===0){
+    grid.style.display='none';
+    if(empty){empty.style.display='flex';}
+    return;
+  }
+  grid.style.display='grid';
+  if(empty)empty.style.display='none';
+
+  grid.innerHTML=ids.map(id=>{
+    const p=PROJECTS[id];const pipe=getPipe(id);const ps=getPS(id);
+    const phase=getOpsPhase(id);
+    const phaseLabel=OPS_PHASE_LABELS[phase]||'Design';
+    const phaseClass=OPS_PHASE_CLASS[phase]||'ops-phase-design';
+    const fee=getFeeTotal(id);
+    const feeStr=fee>0?'£'+(fee/1000).toFixed(0)+'k':'—';
+    const dcType=ps?.dcType||p.dcType||'—';
+    const itLoad=ps?.itLoad||p.itLoad||'';
+    const lead=ps?.leadEngineer||pipe?.leadEngineer||'—';
+    const liveDate=pipe?.liveDate?new Date(pipe.liveDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+
+    // Fee burn indicator — placeholder until timesheets
+    const pctScheduled=ps?.opsScheduledPct||0;
+    const ragClass=pctScheduled>100?'ops-rag-red':pctScheduled>85?'ops-rag-amber':'ops-rag-green';
+
+    return`<div class="ops-card" onclick="openOpsDetail('${id}')">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name||'Unnamed Project'}</div>
+          <div style="font-size:11px;font-family:var(--fm);color:var(--text3);margin-top:2px">${p.client||'—'} · ${p.ref||'—'}</div>
+        </div>
+        <div class="ops-phase-badge ${phaseClass}">${phaseLabel}</div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:10px;font-family:var(--fm);color:var(--text3)">Location</div>
+          <div style="font-size:12px;color:var(--text2)">${p.loc||'—'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:10px;font-family:var(--fm);color:var(--text3)">DC Type</div>
+          <div style="font-size:12px;color:var(--text2)">${dcType}${itLoad?' · '+itLoad+'MW':''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:10px;font-family:var(--fm);color:var(--text3)">Fee Value</div>
+          <div style="font-size:12px;font-weight:600;color:var(--teal)">${feeStr}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:10px;font-family:var(--fm);color:var(--text3)">Lead Engineer</div>
+          <div style="font-size:12px;color:var(--text2)">${lead}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding-top:6px;border-top:1px solid var(--border)">
+        <div class="ops-rag ${ragClass}"></div>
+        <div style="font-size:10px;font-family:var(--fm);color:var(--text3)">Live since ${liveDate}</div>
+        ${daysSinceReview(id)>7?`<div style="margin-left:4px;width:7px;height:7px;border-radius:50%;background:var(--amber)" title="Review overdue (${daysSinceReview(id)===999?'never reviewed':daysSinceReview(id)+' days ago'})"></div>`:''}
+        <div style="margin-left:auto;font-size:10px;font-family:var(--fm);color:var(--text3)">Click to manage →</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openOpsDetail(id){
+  opsOpenProjectId=id;
+  const p=PROJECTS[id];const pipe=getPipe(id);const ps=getPS(id);
+  const panel=document.getElementById('ops-detail-panel');
+  if(!panel)return;
+  document.getElementById('opsd-title').textContent=p.name||'Unnamed Project';
+  document.getElementById('opsd-sub').textContent=(p.client||'—')+' · '+(p.ref||'—')+' · '+(p.loc||'—');
+  const phase=getOpsPhase(id);
+  const phLabel=OPS_PHASE_LABELS[phase]||'Design';
+  const phClass=OPS_PHASE_CLASS[phase]||'ops-phase-design';
+  const badge=document.getElementById('opsd-phase-badge');
+  badge.textContent=phLabel;badge.className='ops-phase-badge '+phClass;
+  panel.style.display='flex';
+  opsDetailTab('overview');
+}
+
+function closeOpsDetail(){
+  const panel=document.getElementById('ops-detail-panel');
+  if(panel)panel.style.display='none';
+  opsOpenProjectId=null;
+}
+
+function opsDetailTab(tab){
+  document.querySelectorAll('.opsd-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
+  const id=opsOpenProjectId;if(!id)return;
+  const p=PROJECTS[id];const pipe=getPipe(id);const ps=getPS(id);
+  const el=document.getElementById('opsd-content');if(!el)return;
+
+  if(tab==='overview'){
+    const fee=getFeeTotal(id);
+    const feeStr=fee>0?'£'+(fee/1000).toFixed(0)+'k (£'+fee.toLocaleString()+')':'Not yet calculated';
+    const phase=getOpsPhase(id);
+    const phases=['design','construction','handover','complete'];
+    const phaseIdx=phases.indexOf(phase);
+    const stageSteps=phases.map((ph,i)=>`<div class="stage-prog-step ${i<phaseIdx?'done':i===phaseIdx?'active':''}" title="${OPS_PHASE_LABELS[ph]}"></div>`).join('');
+    const liveDate=pipe?.liveDate?new Date(pipe.liveDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+    el.innerHTML=`
+      <div class="ops-stat-row">
+        <div class="ops-stat"><div class="ops-stat-val">${fee>0?'£'+(fee/1000).toFixed(0)+'k':'—'}</div><div class="ops-stat-lbl">Fee Value (bid)</div></div>
+        <div class="ops-stat"><div class="ops-stat-val">${ps?.itLoad||p.itLoad||'—'}${(ps?.itLoad||p.itLoad)?'MW':''}</div><div class="ops-stat-lbl">IT Load</div></div>
+        <div class="ops-stat"><div class="ops-stat-val">${liveDate}</div><div class="ops-stat-lbl">Date Live</div></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-family:var(--fm);color:var(--text3);margin-bottom:6px">DELIVERY PHASE</div>
+        <div class="stage-prog-bar">${stageSteps}</div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;font-family:var(--fm);color:var(--text3)">
+          ${phases.map(ph=>`<span>${OPS_PHASE_LABELS[ph]}</span>`).join('')}
+        </div>
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          ${phases.map(ph=>`<button onclick="opsSetPhase('${id}','${ph}')" style="padding:4px 10px;font-size:11px;font-family:var(--fm);border-radius:6px;border:1px solid var(--border);background:${phase===ph?'var(--teal)':'var(--bg3)'};color:${phase===ph?'#fff':'var(--text2)'};cursor:pointer">${OPS_PHASE_LABELS[ph]}</button>`).join('')}
+        </div>
+      </div>
+      <div style="font-size:11px;font-family:var(--fm);color:var(--text3);margin-bottom:8px">PROJECT DETAILS (from Sales handover)</div>
+      ${opsDetailTable([
+        ['Client',p.client||'—'],
+        ['Reference',p.ref||'—'],
+        ['Location',p.loc||'—'],
+        ['DC Type',(ps?.dcType||p.dcType||'—')],
+        ['Scope',(p.brief||'—').substring(0,120)+(p.brief&&p.brief.length>120?'…':'')],
+        ['Framework',(ps?.stageFramework==='uk'?'Middle East Code Stages':'RIBA Plan of Work')],
+        ['Lead Engineer',(ps?.leadEngineer||pipe?.leadEngineer||'Not assigned')],
+      ])}
+      <div style="margin-top:14px">
+        <button onclick="switchView('pipeline');setTimeout(()=>{loadProject('${id}',null);},400)" style="padding:6px 12px;font-size:11px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer">← View in Sales Pipeline</button>
+      </div>`;
+  }
+
+  else if(tab==='team'){
+    // Render the full allocation editor (defined in renderAllocTab)
+    renderAllocTab(id);
+  }
+
+  else if(tab==='programme'){
+    const prog=ps?.programme;
+    const cfg=ps?._lastFeeCfg;
+    if(!prog&&(!cfg||!cfg.stages||cfg.stages.length===0)){
+      el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--fm);font-size:12px">Programme not yet defined.<br>Complete the Programme tab in the Sales Pipeline first.</div>`;
+      return;
+    }
+    const stages=cfg?.stages||[];
+    const matrix=window.CFG_MATRIX;
+    el.innerHTML=`
+      <div style="font-size:11px;font-family:var(--fm);color:var(--text3);margin-bottom:12px">PROGRAMME (from Sales — reference only)</div>
+      ${stages.length>0?stages.map(sid=>{
+        const sm=matrix?.stages?.[sid];
+        if(!sm)return'';
+        const lbl=cfg.framework==='code'?(sm.labelCode||sid):(sm.labelRiba||sid);
+        const wks=cfg.durations?.[sid]||sm.weeks||'—';
+        return`<div class="ops-prog-phase">
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--text)">${lbl}</div>
+            <div style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:2px">${wks} week${wks!==1?'s':''}</div>
+          </div>
+          <div style="font-size:11px;font-family:var(--fm);color:var(--text3)">${wks!=='—'?Math.round(wks/4.33*10)/10+' months':'—'}</div>
+        </div>`;
+      }).join(''):`<div style="font-size:12px;color:var(--text3);font-family:var(--fm)">No stages configured.</div>`}
+      ${cfg?.totalWeeks?`<div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:8px;display:flex;justify-content:space-between">
+        <span style="font-size:12px;font-weight:700;color:var(--text)">Total programme</span>
+        <span style="font-size:12px;font-weight:700;color:var(--teal)">${cfg.totalWeeks} weeks (${Math.round(cfg.totalWeeks/4.33)} months)</span>
+      </div>`:''}`;
+  }
+}
+
+function opsDetailTable(rows){
+  return`<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px">`+
+    rows.map((r,i)=>`<div style="display:flex;gap:0;${i>0?'border-top:1px solid var(--border)':''}">
+      <div style="width:130px;flex-shrink:0;padding:8px 12px;font-size:11px;font-family:var(--fm);color:var(--text3);background:var(--bg3)">${r[0]}</div>
+      <div style="flex:1;padding:8px 12px;font-size:12px;color:var(--text)">${r[1]}</div>
+    </div>`).join('')+`</div>`;
+}
+
+function opsSetPhase(id,phase){
+  const ps=getPS(id);if(!ps)return;
+  ps.opsPhase=phase;
+  updateAll(id);
+  saveProjectToSupabase&&saveProjectToSupabase(id);
+  toast('Delivery phase updated to: '+OPS_PHASE_LABELS[phase]);
+  openOpsDetail(id);
+  opsDetailTab('overview');
+  renderOpsProjects();
+}
+
+// ══ ALLOCATION SYSTEM ═════════════════════════════════════════
+
+// Build a flat lookup: role_id → {name, rate} from DISC_ROLES
+function buildRoleLookup(){
+  const map={};
+  if(typeof DISC_ROLES==='undefined') return map;
+  DISC_ROLES.forEach(disc=>disc.r.forEach(r=>{map[r.id]={name:r.n,rate:r.rate};}));
+  return map;
+}
+
+// Working days between two dates (Mon-Fri only)
+function workingDaysBetween(start,end){
+  let count=0;
+  const d=new Date(start);
+  const e=new Date(end);
+  while(d<=e){
+    const day=d.getDay();
+    if(day!==0&&day!==6) count++;
+    d.setDate(d.getDate()+1);
+  }
+  return count||1;
+}
+
+// Add N working days to a date
+function addWorkingDays(startDate,days){
+  const d=new Date(startDate);
+  let added=0;
+  while(added<days){
+    d.setDate(d.getDate()+1);
+    const day=d.getDay();
+    if(day!==0&&day!==6) added++;
+  }
+  return d.toISOString().split('T')[0];
+}
+
+// Extract total hours per role from feeVals
+function getBidHoursByRole(id){
+  const ps=getPS(id);if(!ps||!ps.feeVals) return {};
+  const totals={};
+  Object.entries(ps.feeVals).forEach(([roleId,stageObj])=>{
+    if(typeof stageObj==='object'){
+      const sum=Object.values(stageObj).reduce((a,v)=>a+(typeof v==='number'?v:0),0);
+      if(sum>0) totals[roleId]=sum;
+    }
+  });
+  return totals;
+}
+
+// Get programme total weeks for a project
+function getProgrammeWeeks(id){
+  const ps=getPS(id);
+  const cfg=ps?._lastFeeCfg;
+  if(cfg&&cfg.totalWeeks&&cfg.totalWeeks>0) return cfg.totalWeeks;
+  // fallback: sum stage durations
+  if(cfg&&cfg.durations){
+    const total=Object.values(cfg.durations).reduce((a,v)=>a+(parseFloat(v)||0),0);
+    if(total>0) return total;
+  }
+  // last fallback
+  if(ps&&ps.progVisited){
+    // try to sum from stageData durations
+    const sd=ps.stageData||{};
+    const t=Object.values(sd).reduce((a,v)=>a+(parseFloat(v?.weeks||v)||0),0);
+    if(t>0) return t;
+  }
+  return 12; // sensible default: 12 weeks if no programme data
+}
+
+// Generate initial allocations from bid hours when project goes Live
+async function generateOpsAllocations(id){
+  const ps=getPS(id);if(!ps) return;
+  const pipe=getPipe(id);if(!pipe) return;
+
+  const bidHours=getBidHoursByRole(id);
+  const progWeeks=getProgrammeWeeks(id);
+  const roleMap=buildRoleLookup();
+  const startDate=(pipe.liveDate||new Date().toISOString()).split('T')[0];
+
+  // Working days in programme
+  const workingDays=Math.round(progWeeks*5); // 5 working days/week
+  if(!workingDays) return;
+
+  const rows=Object.entries(bidHours).map(([roleId,bidHrs])=>{
+    const roleInfo=roleMap[roleId]||{name:roleId,rate:82};
+    const hrsPerDay=Math.round((bidHrs/workingDays)*10)/10||0.5;
+    const endDate=addWorkingDays(startDate,workingDays-1);
+    return {
+      id:crypto.randomUUID(),
+      project_id:id,
+      role_id:roleId,
+      role_name:roleInfo.name,
+      rate:roleInfo.rate,
+      bid_hours:bidHrs,
+      hrs_per_day:hrsPerDay,
+      start_date:startDate,
+      end_date:endDate,
+      profile_id:null,
+    };
+  });
+
+  // Store in memory
+  OPS_ALLOCS[id]=rows;
+
+  // Persist to Supabase
+  if(typeof supa!=='undefined' && rows.length>0){
+    try{
+      const {error}=await supa.from('ops_allocations').upsert(rows,{onConflict:'id'});
+      if(error) console.warn('Alloc save error:',error.message);
+    }catch(e){console.warn('Alloc save failed:',e);}
+  }
+}
+
+// Save a single allocation row update to Supabase
+async function saveAlloc(row){
+  if(typeof supa==='undefined') return;
+  try{
+    const {error}=await supa.from('ops_allocations').upsert(row,{onConflict:'id'});
+    if(error) console.warn('Alloc update error:',error.message);
+  }catch(e){console.warn('Alloc update failed:',e);}
+}
+
+// Delete a single allocation
+async function deleteAlloc(allocId, projectId){
+  if(!OPS_ALLOCS[projectId]) return;
+  OPS_ALLOCS[projectId]=OPS_ALLOCS[projectId].filter(a=>a.id!==allocId);
+  if(typeof supa!=='undefined'){
+    try{ await supa.from('ops_allocations').delete().eq('id',allocId); }
+    catch(e){ console.warn('Alloc delete failed:',e); }
+  }
+}
+
+// Calculate scheduled hours from hrs_per_day and dates
+function calcScheduledHours(alloc){
+  if(!alloc.start_date||!alloc.end_date||!alloc.hrs_per_day) return 0;
+  const wdays=workingDaysBetween(alloc.start_date,alloc.end_date);
+  return Math.round(alloc.hrs_per_day*wdays*10)/10;
+}
+
+// RAG status for an allocation row
+function allocRag(scheduledHrs, bidHrs){
+  if(!bidHrs) return 'green';
+  const pct=scheduledHrs/bidHrs;
+  if(pct>1.0) return 'red';
+  if(pct>0.9) return 'amber';
+  return 'green';
+}
+
+// Mark a project as reviewed
+function markProjectReviewed(id){
+  const ps=getPS(id);if(!ps)return;
+  ps.lastReviewedAt=new Date().toISOString();
+  saveProjectToSupabase&&saveProjectToSupabase(id);
+  toast('Project marked as reviewed ✓');
+  if(opsOpenProjectId===id) opsDetailTab('overview');
+  renderOpsProjects();
+}
+
+// Days since last review
+function daysSinceReview(id){
+  const ps=getPS(id);
+  if(!ps||!ps.lastReviewedAt) return 999;
+  return Math.floor((Date.now()-new Date(ps.lastReviewedAt).getTime())/(1000*60*60*24));
+}
+
+// ── REBUILD Team & Budget tab with full allocation editor ─────
+function renderAllocTab(id){
+  const el=document.getElementById('opsd-content');if(!el)return;
+  const allocs=OPS_ALLOCS[id]||[];
+  const roleMap=buildRoleLookup();
+  const ps=getPS(id);
+  const progWeeks=getProgrammeWeeks(id);
+
+  // Person dropdown options
+  const profOpts=`<option value="">— Unassigned —</option>`+
+    _allProfiles.map(p=>`<option value="${p.id}">${p.name} (${p.role||'—'})</option>`).join('');
+
+  // Summary stats
+  const totalBid=allocs.reduce((s,a)=>s+a.bid_hours,0);
+  const totalSched=allocs.reduce((s,a)=>s+calcScheduledHours(a),0);
+  const totalFee=allocs.reduce((s,a)=>s+a.bid_hours*a.rate,0);
+  const unassigned=allocs.filter(a=>!a.profile_id).length;
+  const overBudget=allocs.filter(a=>allocRag(calcScheduledHours(a),a.bid_hours)==='red').length;
+
+  const reviewDays=daysSinceReview(id);
+  const reviewFlag=reviewDays>7?`<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:6px;margin-bottom:12px">
+    <div style="width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0"></div>
+    <div style="font-size:11px;font-family:var(--fm);color:var(--amber);flex:1">${reviewDays===999?'Never reviewed':'Last reviewed '+reviewDays+' days ago'} — weekly review overdue</div>
+    <button onclick="markProjectReviewed('${id}')" style="padding:3px 8px;font-size:10px;font-family:var(--fm);background:var(--amber);color:#fff;border:none;border-radius:4px;cursor:pointer">Mark reviewed</button>
+  </div>`:'';
+
+  const domainNote=`<div style="font-size:10px;font-family:var(--fm);color:var(--text3);padding:6px 10px;background:var(--bg3);border-radius:6px;margin-bottom:12px">
+    <strong>Domain boundary:</strong> Bid hours are locked (Sales). Hrs/day, person and dates are managed here (Operations). Fee rates are set by Finance.
+  </div>`;
+
+  el.innerHTML=`
+    ${reviewFlag}
+    ${domainNote}
+    <div class="ops-stat-row">
+      <div class="ops-stat">
+        <div class="ops-stat-val">${totalBid}</div>
+        <div class="ops-stat-lbl">Total bid hours (locked)</div>
+      </div>
+      <div class="ops-stat">
+        <div class="ops-stat-val" style="color:${totalSched>totalBid?'var(--coral)':totalSched>totalBid*0.9?'var(--amber)':'var(--teal)'}">${totalSched}</div>
+        <div class="ops-stat-lbl">Total scheduled hrs</div>
+      </div>
+      <div class="ops-stat">
+        <div class="ops-stat-val" style="color:var(--teal)">£${Math.round(totalFee/1000)}k</div>
+        <div class="ops-stat-lbl">Fee value (bid)</div>
+      </div>
+    </div>
+
+    ${unassigned>0?`<div style="font-size:11px;font-family:var(--fm);color:var(--amber);margin-bottom:10px">⚠ ${unassigned} role${unassigned!==1?'s':''} unassigned — assign engineers below</div>`:''}
+    ${overBudget>0?`<div style="font-size:11px;font-family:var(--fm);color:var(--coral);margin-bottom:10px">🔴 ${overBudget} role${overBudget!==1?'s':''} scheduled over bid hours — review schedule</div>`:''}
+
+    <div style="font-size:11px;font-family:var(--fm);color:var(--text3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <span>DELIVERY SCHEDULE — ${progWeeks} week programme</span>
+      <button onclick="opsAddAllocRow('${id}')" style="padding:3px 10px;font-size:10px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer">+ Add row</button>
+    </div>
+
+    ${allocs.length===0?`<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--fm);font-size:12px">
+      No allocations yet.<br>
+      <button onclick="generateOpsAllocations('${id}').then(()=>opsDetailTab('team'))" style="margin-top:10px;padding:6px 14px;font-size:11px;font-family:var(--fm);background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Auto-generate from bid hours</button>
+    </div>`:`
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--fm)">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:5px 6px;color:var(--text3);font-weight:600">Role</th>
+            <th style="text-align:right;padding:5px 6px;color:var(--text3);font-weight:600">Bid hrs</th>
+            <th style="text-align:right;padding:5px 6px;color:var(--text3);font-weight:600">Hrs/day</th>
+            <th style="text-align:left;padding:5px 6px;color:var(--text3);font-weight:600">Start</th>
+            <th style="text-align:left;padding:5px 6px;color:var(--text3);font-weight:600">End</th>
+            <th style="text-align:right;padding:5px 6px;color:var(--text3);font-weight:600">Sched</th>
+            <th style="text-align:left;padding:5px 6px;color:var(--text3);font-weight:600">Person</th>
+            <th style="text-align:center;padding:5px 6px;color:var(--text3);font-weight:600">RAG</th>
+            <th style="padding:5px 6px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allocs.map(a=>{
+            const sched=calcScheduledHours(a);
+            const rag=allocRag(sched,a.bid_hours);
+            const ragCol=rag==='red'?'var(--coral)':rag==='amber'?'var(--amber)':'var(--teal)';
+            const pct=a.bid_hours>0?Math.round(sched/a.bid_hours*100):0;
+            const assignedPerson=_allProfiles.find(p=>p.id===a.profile_id);
+            return`<tr style="border-bottom:1px solid var(--border)" id="alloc-row-${a.id}">
+              <td style="padding:5px 6px;color:var(--text);font-weight:500">${a.role_name}</td>
+              <td style="padding:5px 6px;text-align:right;color:var(--text3)">${a.bid_hours}h</td>
+              <td style="padding:5px 6px;text-align:right">
+                <input type="number" value="${a.hrs_per_day}" min="0.5" max="8" step="0.5"
+                  style="width:50px;text-align:right;padding:2px 4px;font-size:11px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)"
+                  onchange="opsUpdateAlloc('${id}','${a.id}','hrs_per_day',parseFloat(this.value))">
+              </td>
+              <td style="padding:5px 6px">
+                <input type="date" value="${a.start_date||''}"
+                  style="font-size:10px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:2px 4px"
+                  onchange="opsUpdateAlloc('${id}','${a.id}','start_date',this.value)">
+              </td>
+              <td style="padding:5px 6px">
+                <input type="date" value="${a.end_date||''}"
+                  style="font-size:10px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:2px 4px"
+                  onchange="opsUpdateAlloc('${id}','${a.id}','end_date',this.value)">
+              </td>
+              <td style="padding:5px 6px;text-align:right;font-weight:600;color:${ragCol}">${sched}h <span style="font-size:9px;font-weight:400;color:${ragCol}">(${pct}%)</span></td>
+              <td style="padding:5px 6px">
+                <select onchange="opsUpdateAlloc('${id}','${a.id}','profile_id',this.value||null)"
+                  style="font-size:10px;font-family:var(--fm);background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);max-width:130px;padding:2px 4px">
+                  ${_allProfiles.map(p=>`<option value="${p.id}" ${a.profile_id===p.id?'selected':''}>${p.name}</option>`).join('')}
+                  <option value="" ${!a.profile_id?'selected':''}>— Unassigned —</option>
+                </select>
+              </td>
+              <td style="padding:5px 6px;text-align:center">
+                <div style="width:10px;height:10px;border-radius:50%;background:${ragCol};margin:auto" title="${rag==='red'?'Over budget: '+sched+'h vs '+a.bid_hours+'h bid':rag==='amber'?'Approaching limit':'On track'}"></div>
+              </td>
+              <td style="padding:5px 6px">
+                <button onclick="opsDeleteAlloc('${id}','${a.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 2px" title="Remove allocation">×</button>
+              </td>
+            </tr>
+            ${rag==='red'?`<tr><td colspan="9" style="padding:2px 6px 6px">
+              <div style="font-size:10px;font-family:var(--fm);color:var(--coral);padding:4px 8px;background:rgba(240,90,79,.08);border-radius:4px">
+                ⚠ Exceeds bid by ${Math.round(sched-a.bid_hours)}h — £${Math.round((sched-a.bid_hours)*a.rate).toLocaleString()} overrun. Raise a variation order or reduce hrs/day.
+              </div>
+            </td></tr>`:''}`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--border)">
+            <td style="padding:6px;font-weight:700;color:var(--text)">Total</td>
+            <td style="padding:6px;text-align:right;font-weight:700;color:var(--text)">${totalBid}h</td>
+            <td colspan="3"></td>
+            <td style="padding:6px;text-align:right;font-weight:700;color:${totalSched>totalBid?'var(--coral)':'var(--teal)'}">${totalSched}h</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <button onclick="markProjectReviewed('${id}')" style="padding:6px 12px;font-size:11px;font-family:var(--fm);background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">✓ Mark schedule reviewed</button>
+      ${ps?.lastReviewedAt?`<span style="font-size:10px;font-family:var(--fm);color:var(--text3)">Last reviewed: ${new Date(ps.lastReviewedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>`:'<span style="font-size:10px;font-family:var(--fm);color:var(--amber)">Never reviewed</span>'}
+    </div>
+    `}`;
+}
+
+// Update a single field on an allocation row
+function opsUpdateAlloc(projectId, allocId, field, value){
+  const allocs=OPS_ALLOCS[projectId]||[];
+  const alloc=allocs.find(a=>a.id===allocId);
+  if(!alloc) return;
+  alloc[field]=value;
+  alloc.updated_at=new Date().toISOString();
+  // Re-render tab to show recalculated values and warnings
+  renderAllocTab(projectId);
+  // Debounced save
+  clearTimeout(alloc._saveTimer);
+  alloc._saveTimer=setTimeout(()=>saveAlloc(alloc),1500);
+}
+
+// Delete an allocation row
+function opsDeleteAlloc(projectId, allocId){
+  deleteAlloc(allocId, projectId);
+  renderAllocTab(projectId);
+}
+
+// Add a blank allocation row
+function opsAddAllocRow(projectId){
+  if(!OPS_ALLOCS[projectId]) OPS_ALLOCS[projectId]=[];
+  const pipe=getPipe(projectId);
+  const startDate=(pipe?.liveDate||new Date().toISOString()).split('T')[0];
+  const newRow={
+    id:crypto.randomUUID(),
+    project_id:projectId,
+    role_id:'custom',
+    role_name:'New Role',
+    rate:82,
+    bid_hours:0,
+    hrs_per_day:1,
+    start_date:startDate,
+    end_date:addWorkingDays(startDate,59),
+    profile_id:null,
+    updated_at:new Date().toISOString(),
+  };
+  OPS_ALLOCS[projectId].push(newRow);
+  saveAlloc(newRow);
+  renderAllocTab(projectId);
+}
+
+// ══ UTILISATION TIMELINE ══════════════════════════════════════
+
+// Distinct project colours — cycle through these
+const UTIL_PROJECT_COLOURS=[
+  '#1db8a0','#4da6ff','#9b8df8','#f5a623','#f05a4f',
+  '#8dc63f','#e05fc4','#4a9a6a','#ff7043','#26a69a',
+  '#7e57c2','#ef5350','#42a5f5','#66bb6a','#ffa726',
+];
+
+let _utilStartDate=null; // Monday of current view start
+let _utilWeeks=8;
+let _utilProjColours={}; // project_id → colour
+
+function utilGetMonday(d){
+  const dt=new Date(d);
+  const day=dt.getDay();
+  const diff=dt.getDate()-day+(day===0?-6:1);
+  dt.setDate(diff);
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+
+function utilGoToday(){
+  _utilStartDate=utilGetMonday(new Date());
+  renderUtilisation();
+}
+
+function utilShift(weeks){
+  if(!_utilStartDate) _utilStartDate=utilGetMonday(new Date());
+  _utilStartDate=new Date(_utilStartDate);
+  _utilStartDate.setDate(_utilStartDate.getDate()+weeks*7);
+  renderUtilisation();
+}
+
+function utilSetWeeks(n){
+  _utilWeeks=n;
+  renderUtilisation();
+}
+
+function utilAssignProjectColours(){
+  const liveIds=Object.keys(PROJECTS).filter(id=>getPipe(id).stage==='Live');
+  liveIds.forEach((id,i)=>{
+    if(!_utilProjColours[id]) _utilProjColours[id]=UTIL_PROJECT_COLOURS[i%UTIL_PROJECT_COLOURS.length];
+  });
+}
+
+function renderUtilisation(){
+  if(!_utilStartDate) _utilStartDate=utilGetMonday(new Date());
+  utilAssignProjectColours();
+
+  const container=document.getElementById('util-grid-wrap');
+  if(!container) return;
+
+  const filter=document.getElementById('util-filter-select')?.value||'all';
+  const weeks=_utilWeeks;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayMon=utilGetMonday(today);
+
+  // Build week starts array
+  const weekStarts=[];
+  for(let i=0;i<weeks;i++){
+    const d=new Date(_utilStartDate);
+    d.setDate(d.getDate()+i*7);
+    weekStarts.push(d);
+  }
+
+  // Update range label
+  const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const lastWeek=new Date(weekStarts[weekStarts.length-1]);
+  lastWeek.setDate(lastWeek.getDate()+6);
+  const rangeEl=document.getElementById('util-range-label');
+  if(rangeEl) rangeEl.textContent=`${fmt(weekStarts[0])} – ${fmt(lastWeek)}`;
+
+  // Get all engineers who have at least one allocation
+  const allEngineers=_allProfiles.length>0?_allProfiles:[];
+  const assignedProfileIds=new Set();
+  Object.values(OPS_ALLOCS).forEach(allocs=>allocs.forEach(a=>{if(a.profile_id)assignedProfileIds.add(a.profile_id);}));
+
+  let engineers=allEngineers;
+  if(filter==='assigned') engineers=engineers.filter(p=>assignedProfileIds.has(p.id));
+
+  // For each engineer, compute hours/day per week
+  // hours/day capacity = 8 (fixed for now)
+  const CAPACITY_PER_DAY=8;
+  const CAPACITY_PER_WEEK=CAPACITY_PER_DAY*5;
+
+  // Build per-engineer per-week allocation map
+  // weekAllocs[profileId][weekIdx] = [{projectId, hrs, colour, projectName}]
+  const weekAllocs={};
+  engineers.forEach(eng=>{
+    weekAllocs[eng.id]=weekStarts.map(()=>[]);
+  });
+
+  // For each live project's allocations, find which weeks they overlap
+  Object.entries(OPS_ALLOCS).forEach(([projectId,allocs])=>{
+    if(getPipe(projectId)?.stage!=='Live') return;
+    const projName=PROJECTS[projectId]?.name||'Project';
+    const colour=_utilProjColours[projectId]||'#999';
+    allocs.forEach(alloc=>{
+      if(!alloc.profile_id||!alloc.start_date||!alloc.end_date||!alloc.hrs_per_day) return;
+      if(!weekAllocs[alloc.profile_id]) return;
+      const aStart=new Date(alloc.start_date);
+      const aEnd=new Date(alloc.end_date);
+      weekStarts.forEach((wStart,wi)=>{
+        const wEnd=new Date(wStart); wEnd.setDate(wEnd.getDate()+4); // Friday
+        // Overlap check
+        if(aStart<=wEnd && aEnd>=wStart){
+          weekAllocs[alloc.profile_id][wi].push({
+            projectId,
+            projectName:projName,
+            hrs:alloc.hrs_per_day,
+            colour,
+            allocId:alloc.id,
+          });
+        }
+      });
+    });
+  });
+
+  // Filter over-capacity
+  if(filter==='over'){
+    engineers=engineers.filter(eng=>{
+      return weekAllocs[eng.id]?.some(wk=>wk.reduce((s,a)=>s+a.hrs,0)>CAPACITY_PER_DAY);
+    });
+  }
+
+  if(engineers.length===0){
+    container.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text3);font-family:var(--fm);font-size:13px">
+      <div style="font-size:28px;margin-bottom:8px">👥</div>
+      <div style="font-weight:600;color:var(--text2);margin-bottom:4px">${filter==='over'?'No engineers over capacity':'No engineers found'}</div>
+      <div>${filter==='assigned'?'No allocations exist yet — assign engineers in Operations > Projects':'No engineers in the profiles table yet'}</div>
+    </div>`;
+    return;
+  }
+
+  // Summary stats
+  const totalEngineers=engineers.length;
+  const overCapEngineers=engineers.filter(eng=>
+    weekAllocs[eng.id]?.some(wk=>wk.reduce((s,a)=>s+a.hrs,0)>CAPACITY_PER_DAY)
+  ).length;
+  const summaryEl=document.getElementById('util-summary');
+  if(summaryEl) summaryEl.textContent=`${totalEngineers} engineers · ${overCapEngineers>0?overCapEngineers+' over capacity':'all on track'}`;
+
+  // Build legend from active projects
+  const activeProjectIds=new Set();
+  engineers.forEach(eng=>weekAllocs[eng.id]?.forEach(wk=>wk.forEach(a=>activeProjectIds.add(a.projectId))));
+
+  // Render the grid using CSS grid
+  // Columns: person label + weeks
+  const colTemplate=`160px repeat(${weeks}, 52px)`;
+
+  let html=`<div class="util-grid" style="grid-template-columns:${colTemplate}">`;
+
+  // Header row
+  html+=`<div class="util-person-header">Engineer</div>`;
+  weekStarts.forEach(wStart=>{
+    const isToday=wStart.getTime()===todayMon.getTime();
+    const weekLabel=wStart.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    const weekNum=getISOWeek(wStart);
+    html+=`<div class="util-week-header${isToday?' today-col':''}">
+      <div style="font-size:9px;font-family:var(--fm);color:${isToday?'var(--teal)':'var(--text3)'}">W${weekNum}</div>
+      <div style="font-size:10px;font-family:var(--fm);color:${isToday?'var(--teal)':'var(--text2)'};font-weight:${isToday?'700':'400'}">${weekLabel}</div>
+    </div>`;
+  });
+
+  // Engineer rows
+  engineers.forEach(eng=>{
+    const initials=eng.initials||eng.name?.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'??';
+    const totalWeekHrs=weekAllocs[eng.id]?.map(wk=>wk.reduce((s,a)=>s+a.hrs,0))||[];
+    const maxHrs=Math.max(...totalWeekHrs,0);
+    const isOverCap=maxHrs>CAPACITY_PER_DAY;
+
+    html+=`<div class="util-person-label" onclick="utilPersonClick('${eng.id}')">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:24px;height:24px;border-radius:50%;background:${isOverCap?'var(--coral)':'var(--blue)'};color:#fff;font-size:9px;font-family:var(--fm);font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text)">${eng.name||'Unknown'}</div>
+          <div style="font-size:9px;font-family:var(--fm);color:${isOverCap?'var(--coral)':'var(--text3)'}">${eng.role||'—'}${isOverCap?' · ⚠ Over cap':''}</div>
+        </div>
+      </div>
+    </div>`;
+
+    // Week cells for this engineer
+    weekAllocs[eng.id]?.forEach((wkAllocs,wi)=>{
+      const wStart=weekStarts[wi];
+      const isToday=wStart.getTime()===todayMon.getTime();
+      const totalHrs=wkAllocs.reduce((s,a)=>s+a.hrs,0);
+      const capPct=Math.min(totalHrs/CAPACITY_PER_DAY*100,100);
+      const isOver=totalHrs>CAPACITY_PER_DAY;
+
+      html+=`<div class="util-week-cell${isToday?' today-col':''}" style="height:52px;position:relative">`;
+
+      if(wkAllocs.length>0){
+        // Stack allocation bars proportionally within the cell
+        const cellH=44; // px (52 - 8 for padding)
+        let yOffset=4;
+        wkAllocs.forEach(a=>{
+          const pct=a.hrs/Math.max(totalHrs,CAPACITY_PER_DAY);
+          const barH=Math.max(Math.round(pct*cellH)-1,8);
+          html+=`<div class="util-alloc-bar" style="top:${yOffset}px;height:${barH}px;background:${a.colour};opacity:${isOver?'0.9':'1'}"
+            title="${a.projectName}: ${a.hrs}h/day"
+            onclick="event.stopPropagation();switchView('projects');setTimeout(()=>openOpsDetail('${a.projectId}'),300)">
+            ${barH>14?a.projectName.substring(0,10):''}
+          </div>`;
+          yOffset+=barH+1;
+        });
+      }
+
+      // Capacity bar at bottom
+      html+=`<div class="util-cap-bar">
+        <div class="util-cap-fill${isOver?' util-over-cap':''}" style="width:${Math.min(capPct,100)}%;background:${isOver?'var(--coral)':capPct>85?'var(--amber)':'var(--teal)'}"></div>
+      </div>`;
+
+      if(totalHrs>0){
+        html+=`<div style="position:absolute;top:2px;right:3px;font-size:8px;font-family:var(--fm);color:${isOver?'var(--coral)':'var(--text3)'};font-weight:${isOver?'700':'400'}">${totalHrs}h</div>`;
+      }
+
+      html+=`</div>`;
+    });
+  });
+
+  html+=`</div>`;
+
+  // Project legend below grid
+  if(activeProjectIds.size>0){
+    html+=`<div style="padding:10px 20px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border)">`;
+    [...activeProjectIds].forEach(pid=>{
+      const p=PROJECTS[pid];
+      if(!p) return;
+      html+=`<div style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--fm);color:var(--text2);cursor:pointer" onclick="switchView('projects');setTimeout(()=>openOpsDetail('${pid}'),300)">
+        <div style="width:10px;height:10px;border-radius:2px;background:${_utilProjColours[pid]||'#999'};flex-shrink:0"></div>
+        ${p.name||pid} <span style="color:var(--text3)">(${p.client||'—'})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  container.innerHTML=html;
+}
+
+// ISO week number helper
+function getISOWeek(date){
+  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  const dayNum=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-dayNum);
+  const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d-yearStart)/86400000)+1)/7);
+}
+
+function utilPersonClick(profileId){
+  // Navigate to their allocations — future: open person detail panel
+  const person=_allProfiles.find(p=>p.id===profileId);
+  if(!person) return;
+  toast(`${person.name} — ${Object.values(OPS_ALLOCS).flat().filter(a=>a.profile_id===profileId).length} allocation(s) across live projects`);
+}
 
 function closeLead(id){
   const reasons=['No response / unreachable','Not qualified for PPa','Budget not available','Client withdrew / on hold','Lost to competitor','Duplicate entry'];
@@ -8219,19 +9264,27 @@ let lvSearch={leads:'',opps:'',props:''};
 
 function switchView(view){
   currentView=view;
-  ['pipeline','leads','opps','props','dash'].forEach(v=>{
+  ['pipeline','leads','opps','props','dash','projects','utilisation'].forEach(v=>{
     document.getElementById('nav-'+v)?.classList.toggle('on',v===view);
     document.getElementById('view-'+v)?.classList.toggle('active',v===view);
   });
-  const titles={pipeline:'Sales Pipeline',leads:'Leads',opps:'Opportunities',props:'Proposals',dash:'Sales Dashboard'};
-  const subs={pipeline:'EMEA · FY2026',leads:'New Lead & Contacted stages',opps:'Qualified & In Assessment stages',props:'Proposal & Negotiation stage',dash:'Forecast · Pipeline · Regional performance'};
+  // flex views need special display handling
+  const vp=document.getElementById('view-projects');
+  if(vp){vp.style.display=view==='projects'?'flex':'none';vp.classList.toggle('active',view==='projects');}
+  const vu=document.getElementById('view-utilisation');
+  if(vu){vu.style.display=view==='utilisation'?'flex':'none';vu.classList.toggle('active',view==='utilisation');}
+  const titles={pipeline:'Sales Pipeline',leads:'Leads',opps:'Opportunities',props:'Proposals',dash:'Sales Dashboard',projects:'Operations — Projects',utilisation:'Operations — Utilisation'};
+  const subs={pipeline:'EMEA · FY2026',leads:'New Lead & Contacted stages',opps:'Qualified & In Assessment stages',props:'Proposal & Negotiation stage',dash:'Forecast · Pipeline · Regional performance',projects:'Live projects · Delivery tracking',utilisation:'Engineer capacity · Weekly schedule'};
   document.querySelector('.tbt').textContent=titles[view]||'';
   document.querySelector('.tbsub').textContent=subs[view]||'';
   if(view==='leads')renderListView('leads');
   if(view==='opps')renderListView('opps');
   if(view==='props')renderListView('props');
   if(view==='dash')renderSalesDashboard();
+  if(view==='projects')renderOpsProjects();
+  if(view==='utilisation')renderUtilisation();
   if(view!=='pipeline')(()=>{const _dp=document.getElementById('detail-panel');if(_dp)_dp.style.display='none';})();
+  if(view!=='projects')closeOpsDetail();
 }
 
 const LV_STAGES={
@@ -8248,6 +9301,16 @@ function updateListBadges(){
   if(s('sb-leads'))s('sb-leads').textContent=cnt(LV_STAGES.leads);
   if(s('sb-opps'))s('sb-opps').textContent=cnt(LV_STAGES.opps);
   if(s('sb-props'))s('sb-props').textContent=cnt(LV_STAGES.props);
+  const liveCount=ids.filter(id=>getPipe(id).stage==='Live').length;
+  if(s('sb-projects'))s('sb-projects').textContent=liveCount;
+  if(s('kpi-live-count'))s('kpi-live-count').textContent=liveCount;
+  // Utilisation badge — count engineers with any over-capacity week
+  const overCap=_allProfiles.filter(eng=>{
+    return Object.values(OPS_ALLOCS).some(allocs=>
+      allocs.filter(a=>a.profile_id===eng.id).reduce((t,a)=>t+a.hrs_per_day,0)>8
+    );
+  }).length;
+  if(s('sb-utilisation'))s('sb-utilisation').textContent=overCap>0?overCap:'';
 }
 
 function renderListView(view){
