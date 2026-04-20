@@ -6981,7 +6981,9 @@ function getReviewWks(id,stageNum){
   const ps=getPS(id);return(ps.reviewWks&&ps.reviewWks[stageNum]!==undefined)?ps.reviewWks[stageNum]:1;
 }
 function updateDur(id){
-  const ps=getPS(id);const stages=getActiveStages(id);let tot=0;stages.forEach(s=>tot+=getW(id,s.num));
+  const ps=getPS(id);const stages=getActiveStages(id);
+  // Include review periods in total — matches Gantt calculation
+  let tot=0;stages.forEach(s=>tot+=getW(id,s.num)+getReviewWks(id,s.num));
   const td=document.getElementById('totdur-'+id);const ee=document.getElementById('estend-'+id);
   if(td)td.textContent=tot+' weeks';
   if(ee&&tot){const d=getStart(id);d.setDate(d.getDate()+tot*7);ee.textContent=d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
