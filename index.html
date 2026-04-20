@@ -6030,7 +6030,6 @@ function loadProject(id,cardEl){
   currentId=id;
   const p=PROJECTS[id];
   (()=>{const _dp=document.getElementById('detail-panel');if(_dp)_dp.style.display='flex';})();
-  (()=>{const _cb=document.getElementById('cfg-estimate-btn');if(_cb)_cb.style.display='inline-flex';})();
   document.getElementById('dpname').textContent=p.name||'—';
   const pipe=getPipe(id);
   const _dpref=document.getElementById('dpref');if(_dpref)_dpref.innerHTML=`${p.ref} · <span class="badge ${getBadgeClass(pipe.stage)}">${pipe.stage}</span>`;
@@ -6290,7 +6289,7 @@ function getTabGates(id) {
     feeCalc:      r >= 2 && ps.feeExists,
     programme:    r >= 2 && ps.feeExists,
     proposal:     r >= 2 && allTabsComplete(id),
-    feeBtn:       r >= 2 && r < 4 && !isProposalStage,
+    feeBtn:       r >= 2 && r < 4 && !isProposalStage && !feeHasValues(id),
     showSummary:  isProposalStage && !_inEditMode,
   };
 }
