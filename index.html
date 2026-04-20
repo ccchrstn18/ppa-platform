@@ -817,7 +817,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
           <div class="dname" id="dpname">—</div>
           <div class="dref" id="dpref">—</div>
         </div>
-        <button id="build-fee-btn" class="btn bp bsm" style="display:none" onclick="buildFeeFromHeader()">Build fee calculator →</button>
+        <button id="build-fee-btn" class="btn bp bsm" style="display:none" onclick="buildFeeFromHeader()" title="Open blank fee calculator grid — use ⚡ Fee Estimate to auto-populate hours">Build fee calculator →</button>
         <button id="cfg-estimate-btn" class="btn bg bsm" onclick="openCfgModal('existing',currentId)" style="border:1px solid var(--accent);color:var(--accent);background:transparent;display:none" title="Auto-generate fee estimate from DC matrix">⚡ Fee Estimate</button>
         <button class="btn bp bsm" onclick="saveChanges()">Save</button>
       </div>
@@ -6351,6 +6351,10 @@ function buildFeeFromHeader(){
   const ps=getPS(currentId);
   if(!ps.selRoles.size){toast('Select at least one role on Role selection first');return;}
   if(!ps.cvVisited){toast('Complete Cover page first');return;}
+  // Warn if hours already exist — this will wipe them
+  if(ps.feeExists && Object.keys(ps.feeVals||{}).length > 0){
+    if(!confirm('This will reset the fee calculator and clear all existing hours.\n\nIf you have a fee estimate, use \'⚡ Fee Estimate\' instead to re-run it.\n\nContinue and reset?')) return;
+  }
   buildFeeFromRoles(currentId);
   renderTabs(currentId);
 }
@@ -7910,12 +7914,14 @@ function renderProposalSummary(id){
   const sd=getStart(id);let cum=0;
   const stageInfo=stages.map(s=>{
     const wks=getW(id,s.num);
+    const rev=getReviewWks(id,s.num); // include review period
     const hex=s._uk?s.color:SH[s.num];
     const lbl=s._uk?s.label:'S'+s.num;
     const sDate=new Date(sd);sDate.setDate(sDate.getDate()+cum*7);
-    const eDate=new Date(sd);eDate.setDate(eDate.getDate()+(cum+wks)*7);cum+=wks;
+    const eDate=new Date(sd);eDate.setDate(eDate.getDate()+(cum+wks)*7);
+    cum+=wks+rev; // advance cursor by design weeks + review weeks
     const hrs=stageTots[s.num]||0;const fee=(ps.stageData[s.num]||{fee:0}).fee;
-    return{num:s.num,name:s.name,wks,hex,lbl,sDate,eDate,hrs,fee};
+    return{num:s.num,name:s.name,wks,rev,hex,lbl,sDate,eDate,hrs,fee};
   });
 
   const fmtDate=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
