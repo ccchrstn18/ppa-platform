@@ -6585,7 +6585,7 @@ function renderStagePanel(id){
   const acts=document.getElementById('sp-acts');
   const msg=document.getElementById('sp-msg');
   msg.className='sp-msg';msg.textContent='';
-  const cols={'New Lead':'var(--text2)','Att. to contact':'var(--amber)','Contacted':'var(--blue)','Information Pending':'var(--amber)','Qualified':'var(--accent)','In Assessment':'var(--accent)','Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
+  const cols={'New Lead':'var(--text2)','Att. to contact':'var(--amber)','Contacted':'var(--blue)','Information Pending':'var(--amber)','Qualified':'var(--accent)','In Assessment':'var(--accent)','Opportunity':'var(--accent)','Proposal':'var(--purple)','Negotiation':'var(--amber)','Live':'var(--teal)','Closed Lead':'var(--coral)'};
   label.textContent=stage;label.style.color=cols[stage]||'var(--text)';acts.innerHTML='';
 
   if(stage==='New Lead'){
@@ -6616,8 +6616,10 @@ function renderStagePanel(id){
       if(pipe.stage==='Information Pending'){pipe.stage='Contacted';updateDetailBadge(id);updateCardVisual(id);}
     }
 
-  }else if(stage==='Qualified'||stage==='In Assessment'){
-    info.textContent=pipe.qualScore!=null?`Qualified · score ${pipe.qualScore}/5`:'Qualified';
+  }else if(stage==='Qualified'||stage==='In Assessment'||stage==='Opportunity'){
+    // Normalise display — all three map to Opportunity column
+    const dispStage=stage==='Opportunity'?'Opportunity':'Opportunity ('+stage+')';
+    info.textContent=pipe.qualScore!=null?`${dispStage} · qual score ${pipe.qualScore}/5`:dispStage;
     const allDone=allTabsComplete(id);
     if(allDone){
       acts.innerHTML=`<button class="btn bp bsm" onclick="advanceToProposal('${id}')">Advance to Proposal →</button><button class="btn bg bsm" onclick="trySwitch(document.getElementById('tab-ps'),'tp-ps')">Review Proposal Summary</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead</button>`;
@@ -9289,7 +9291,7 @@ function switchView(view){
 
 const LV_STAGES={
   leads:['New Lead','Att. to contact','Contacted','Information Pending'],
-  opps:['Qualified','In Assessment'],
+  opps:['Qualified','In Assessment','Opportunity'],
   props:['Proposal','Negotiation'],
   onhold:['On Hold'],
 };
