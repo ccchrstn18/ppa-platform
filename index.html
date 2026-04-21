@@ -5686,11 +5686,9 @@ function renderSalesDashboard(){
 
 
 function editProjectOverview(id){
-  // Show tabs and switch to Overview — used by Edit Proposal button
-  // when already viewing the proposal summary in pipeline
+  // Opens tabs for editing — called from Negotiation stage panel
   if(currentView==='pipeline'&&currentId===id){
     _inEditMode=true;
-    // Show the tab bar and hide proposal view
     const tabBar=document.getElementById('dtabs');
     const propView=document.getElementById('proposal-view');
     const stagePanel=document.getElementById('stage-panel');
@@ -5698,8 +5696,11 @@ function editProjectOverview(id){
     if(tabBar)tabBar.style.display='';
     if(propView)propView.style.display='none';
     if(stagePanel)stagePanel.style.display='';
-    // Switch to Overview tab
-    doSwitch(document.getElementById('tab-ov'),'tp-ov');
+    if(saveBtn)saveBtn.style.display='';
+    // Land on Fee Calculator — most likely thing to edit in negotiation
+    const feeTab=document.getElementById('tab-fee');
+    if(feeTab&&!feeTab.classList.contains('locked')) doSwitch(feeTab,'tp-fee');
+    else doSwitch(document.getElementById('tab-ov'),'tp-ov');
     const detail=document.getElementById('detail-panel');
     if(detail)detail.scrollIntoView({behavior:'smooth',block:'start'});
     return;
@@ -6459,6 +6460,7 @@ function getTabGates(id) {
   const hasCode    = hasRealPPACode(id);
   const hasContact = !!(p.client && p.loc && p.src);
   const isProposalStage = ['Proposal','Negotiation','Live'].includes(pipe.stage);
+  const isNegOrLive = ['Negotiation','Live'].includes(pipe.stage);
   return {
     coverPage:    r >= 2 && hasCode && hasContact,
     roleSelect:   r >= 2 && hasCode && ps.cvVisited && !ps.feeExists,
@@ -6466,7 +6468,8 @@ function getTabGates(id) {
     programme:    r >= 2 && ps.feeExists,
     proposal:     r >= 2 && allTabsComplete(id),
     feeBtn:       r >= 2 && r < 4 && !isProposalStage && !feeHasValues(id),
-    showSummary:  isProposalStage && !_inEditMode,
+    showSummary:  pipe.stage==='Proposal' && !_inEditMode,
+    showNegEdit:  isNegOrLive,
   };
 }
 
@@ -6506,6 +6509,21 @@ function renderTabs(id){
   if(propView)   propView.style.display   = gates.showSummary ? 'flex' : 'none';
   if(saveBtn)    saveBtn.style.display    = gates.showSummary ? 'none' : '';
   if(stagePanel) stagePanel.style.display = gates.showSummary ? 'none' : '';
+
+  // Negotiation revision banner
+  const existingBanner=document.getElementById('neg-revision-banner');
+  if(existingBanner) existingBanner.remove();
+  if(gates.showNegEdit && tabBar){
+    const banner=document.createElement('div');
+    banner.id='neg-revision-banner';
+    banner.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 16px;background:rgba(245,166,35,.1);border-bottom:1px solid rgba(245,166,35,.25);font-size:11px;font-family:var(--fm);flex-shrink:0';
+    banner.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0"></span>
+      <span style="color:var(--amber);font-weight:600">Negotiation revision</span>
+      <span style="color:var(--text3)">Fee, scope and programme are editable. Changes here reflect revised terms agreed with the client.</span>`;
+    const dp=document.getElementById('detail-panel');
+    const dtabs=document.getElementById('dtabs');
+    if(dp&&dtabs) dp.insertBefore(banner,dtabs);
+  }
 
   if(gates.showSummary) {
     document.querySelectorAll('.tp').forEach(t=>t.classList.remove('on'));
@@ -6632,13 +6650,13 @@ function renderStagePanel(id){
 
   }else if(stage==='Proposal'){
     info.textContent='Proposal submitted — awaiting client decision';
-    acts.innerHTML=`<button class="btn bp bsm" onclick="advanceToNegotiation('${id}')">Advance to Negotiation →</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead (not awarded)</button>`;
-    msg.className='sp-msg sp-ok on';msg.textContent='Proposal is out. Move to Negotiation once the client engages on terms, or mark Lost if not awarded.';
+    acts.innerHTML=`<button class="btn bp bsm" onclick="advanceToNegotiation('${id}')">Client engaged — Advance to Negotiation →</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close — Not Awarded</button>`;
+    msg.className='sp-msg sp-ok on';msg.textContent='Proposal is out and read-only. When the client responds and negotiations begin, advance to Negotiation where fee and scope can be revised.';
 
   }else if(stage==='Negotiation'){
     info.textContent='In negotiation — finalising terms & fee';
-    acts.innerHTML=`<button class="btn bp bsm" onclick="markLive('${id}')" style="background:var(--teal);border-color:var(--teal)">🎉 Mark as Won — Go Live</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead (not awarded)</button>`;
-    msg.className='sp-msg sp-ok on';msg.textContent='Mark as Won once the contract is signed and the project is ready to hand over to Operations.';
+    acts.innerHTML=`<button class="btn bp bsm" onclick="markLive('${id}')" style="background:var(--teal);border-color:var(--teal)">🎉 Mark as Won — Go Live</button><button class="btn bg bsm" onclick="editProjectOverview('${id}')">✏ Edit fee / scope / programme</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close — Not Awarded</button>`;
+    msg.className='sp-msg sp-ok on';msg.textContent='Fee, scope and programme are editable here — any changes reflect revised terms agreed with the client. Mark as Won once the contract is signed.';
 
   }else if(stage==='Live'){
     info.textContent='Active project — in delivery';
@@ -6670,8 +6688,37 @@ function missingTabsList(id){
   return miss.join(', ')||'none';
 }
 
-function advanceToProposal(id){getPipe(id).stage='Proposal';moveCardToCol(id,'cpr');updateAll(id);logStageChange(id,'Proposal');toast('Advanced to Proposal stage');}
-function advanceToNegotiation(id){getPipe(id).stage='Negotiation';moveCardToCol(id,'cng');updateAll(id);logStageChange(id,'Negotiation');toast('Advanced to Negotiation');}
+function advanceToProposal(id){
+  getPipe(id).stage='Proposal';
+  moveCardToCol(id,'cpr');
+  updateAll(id);
+  logStageChange(id,'Proposal');
+  toast('Advanced to Proposal stage');
+  // Re-select card in new column so highlight follows
+  setTimeout(()=>{
+    const card=document.querySelector(`#kb-cpr [data-id="${id}"]`);
+    if(card){
+      document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel'));
+      card.classList.add('sel');
+      card.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  },100);
+}
+function advanceToNegotiation(id){
+  getPipe(id).stage='Negotiation';
+  moveCardToCol(id,'cng');
+  updateAll(id);
+  logStageChange(id,'Negotiation');
+  toast('Advanced to Negotiation');
+  setTimeout(()=>{
+    const card=document.querySelector(`#kb-cng [data-id="${id}"]`);
+    if(card){
+      document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel'));
+      card.classList.add('sel');
+      card.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  },100);
+}
 function markLive(id){
   const p=getPipe(id);
   p.stage='Live';
@@ -10114,7 +10161,7 @@ function renderProposalView(id){
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn bg bsm" onclick="exportPSSummaryPDF('${id}')" style="display:flex;align-items:center;gap:4px">⬇ Internal PDF</button>
         <button class="btn bp bsm" onclick="exportClientProposalPDF('${id}')" style="display:flex;align-items:center;gap:4px">⬇ Client Proposal</button>
-        <button class="btn bsm" onclick="editProjectOverview('${id}')" style="display:flex;align-items:center;gap:4px;background:var(--bg2);border-color:var(--border2)">✏ Edit Proposal</button>
+        <span style="font-size:10px;font-family:var(--fm);color:var(--text3);padding:0 4px">🔒 Read-only — edits available in Negotiation</span>
       </div>
     </div>
     <!-- Proposal Summary content -->
