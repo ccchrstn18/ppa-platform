@@ -1246,6 +1246,7 @@ function stateToRow(id){
     ops_phase:    ps.opsPhase || 'design',
     last_reviewed_at: ps.lastReviewedAt || null,
     ops_notes:    ps.opsNotes || null,
+    bid_weeks:    ps.bidWeeks || null,
   };
 }
 
@@ -1306,6 +1307,7 @@ function rowToState(row){
     opsPhase:    row.ops_phase||'design',
     lastReviewedAt: row.last_reviewed_at||null,
     opsNotes:    row.ops_notes||null,
+    bidWeeks:    row.bid_weeks||null,
   };
 }
 
@@ -2994,8 +2996,12 @@ function cfgApplyHours(projectId, result, cfg) {
   ps.feeExists = true;
   ps.cvVisited = true;  // wizard has configured cover page — unlock fee calc and programme
 
-  // Warn if overwriting existing manual fee edits
-  const _hasManuFee = ps.feeExists && Object.keys(ps.feeVals||{}).length > 0;
+  // Snapshot bid-time programme weeks — used to detect compression later
+  ps.bidWeeks = {};
+  cfg.stages.forEach(sid=>{
+    const sm=CFG_MATRIX.stages[sid];
+    ps.bidWeeks[sid]=cfg.durations[sid]??sm?.weeks??0;
+  });
   // (Confirmation already handled in cfgGenerate before calling this — flag is set)
   // This function always proceeds — confirm guard is upstream
 
@@ -6508,7 +6514,7 @@ function renderTabs(id){
   if(tabBar)     tabBar.style.display     = gates.showSummary ? 'none' : '';
   if(propView)   propView.style.display   = gates.showSummary ? 'flex' : 'none';
   if(saveBtn)    saveBtn.style.display    = gates.showSummary ? 'none' : '';
-  if(stagePanel) stagePanel.style.display = gates.showSummary ? 'none' : '';
+  if(stagePanel) stagePanel.style.display = ''; // always visible — stage actions needed at all stages
 
   // Negotiation revision banner
   const existingBanner=document.getElementById('neg-revision-banner');
@@ -6644,8 +6650,8 @@ function renderStagePanel(id){
       msg.className='sp-msg sp-ok on';msg.textContent='All tabs complete — ready to advance. Review the Proposal Summary first or go straight to Proposal.';
     } else {
       const missing=missingTabsList(id);
-      acts.innerHTML=`<button class="btn bp bsm" onclick="advanceToProposal('${id}')" style="opacity:.55" title="Recommended: complete all tabs first — but you can advance now if needed">Advance to Proposal →</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead</button>`;
-      msg.className='sp-msg sp-block on';msg.textContent='Recommended: complete these tabs before advancing — '+missing+'.';
+      acts.innerHTML=`<button class="btn bp bsm" disabled style="opacity:.35;cursor:not-allowed" title="Complete all required sections first">Advance to Proposal →</button><button class="btn bd bsm" onclick="closeLead('${id}')">Close Lead</button>`;
+      msg.className='sp-msg sp-block on';msg.textContent='⛔ Cannot advance — complete the following first: '+missing+'.';
     }
 
   }else if(stage==='Proposal'){
@@ -6678,17 +6684,31 @@ function markContacted(id){getPipe(id).stage='Contacted';moveCardToCol(id,'cct')
 function autoClose(id){getPipe(id).closedReason='No response after 3 attempts';getPipe(id).stage='Closed Lead';moveCardToCol(id,'ccl');updateAll(id);logStageChange(id,'Closed Lead');toast('Auto-closed');}
 function allTabsComplete(id){
   const ps=getPS(id);
-  return ps.cvVisited && ps.selRoles.size>0 && feeHasValues(id);
+  const infoOk=checkInfoComplete(id).ok;
+  const stagesOk=ps.selStages&&ps.selStages.size>0;
+  const feeOk=feeHasValues(id);
+  const progOk=ps.progVisited&&getProgrammeWeeks(id)>0;
+  const notStale=!ps.estimateOutOfDate;
+  return ps.cvVisited && infoOk && stagesOk && feeOk && progOk && notStale;
 }
 function missingTabsList(id){
   const ps=getPS(id);const miss=[];
-  if(!ps.cvVisited)miss.push('Cover page');
-  if(!ps.selRoles.size)miss.push('Role selection');
-  if(!feeHasValues(id))miss.push('Fee calculator — enter hours > 0');
-  return miss.join(', ')||'none';
+  const info=checkInfoComplete(id);
+  if(!info.ok) miss.push('Overview ('+info.missing.slice(0,3).join(', ')+(info.missing.length>3?' +more':'')+')');
+  if(!ps.cvVisited) miss.push('Cover page not visited');
+  else if(!ps.selStages||!ps.selStages.size) miss.push('Cover page — select at least one stage');
+  if(!feeHasValues(id)) miss.push('Fee calculator — hours not yet entered');
+  if(ps.estimateOutOfDate) miss.push('Fee estimate is stale — re-run or update fee calculator');
+  if(!ps.progVisited) miss.push('Programme not visited');
+  else if(getProgrammeWeeks(id)<=0) miss.push('Programme — set stage durations');
+  return miss.join(' · ')||'none';
 }
 
 function advanceToProposal(id){
+  if(!allTabsComplete(id)){
+    toast('⛔ Cannot advance — complete all required sections first');
+    return;
+  }
   getPipe(id).stage='Proposal';
   moveCardToCol(id,'cpr');
   updateAll(id);
@@ -7990,6 +8010,61 @@ function resetScope(id){
 }
 
 function onStartDate(id,val){const ps=getPS(id);ps.startDate=val;updateDur(id);}
+
+// ── PROGRAMME COMPRESSION CHECK ──────────────────────────────
+function checkProgrammeCompression(id, stageId, newWks){
+  const ps=getPS(id);
+  if(!ps.feeExists||!ps.bidWeeks) return; // no bid to compare against
+
+  const bidWks=ps.bidWeeks[stageId];
+  if(!bidWks) return; // stage not in original bid
+
+  const stageName=CFG_MATRIX.stages[stageId]?.labelRiba
+    ||CFG_MATRIX.stages[stageId]?.labelCode
+    ||stageId;
+
+  // Remove any existing compression banner for this stage
+  const existing=document.getElementById('comp-warn-'+id+'-'+stageId);
+  if(existing) existing.remove();
+
+  if(newWks<bidWks){
+    // Compressed — show warning inline and mark estimate stale
+    const pct=Math.round((1-newWks/bidWks)*100);
+    const progPanel=document.getElementById('tp-prog');
+    if(progPanel){
+      const banner=document.createElement('div');
+      banner.id='comp-warn-'+id+'-'+stageId;
+      banner.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.35);border-radius:8px;margin:8px 16px;font-family:var(--fm)';
+      banner.innerHTML=`
+        <span style="font-size:16px;flex-shrink:0">⚠</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:3px">${stageName} compressed by ${pct}% (${bidWks}w → ${newWks}w)</div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:6px">Programme shortened from the bid. Consider whether resource allocation needs adjusting — more engineers working in parallel may be required, which could affect the fee.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="trySwitch(document.getElementById('tab-fee'),'tp-fee')" style="padding:3px 10px;font-size:11px;background:var(--amber);color:#1a1a1a;border:none;border-radius:5px;cursor:pointer;font-weight:600">Review fee calculator →</button>
+            <button onclick="openCfgModal('existing','${id}')" style="padding:3px 10px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--text2)">Re-run estimate</button>
+            <button onclick="document.getElementById('comp-warn-${id}-${stageId}').remove()" style="padding:3px 10px;font-size:11px;background:none;border:none;cursor:pointer;color:var(--text3)">Dismiss</button>
+          </div>
+        </div>`;
+      // Insert at top of programme panel
+      progPanel.insertBefore(banner, progPanel.firstChild);
+    }
+    markEstimateStale(id);
+  } else if(newWks>bidWks){
+    // Extended — softer notice, not stale
+    const progPanel=document.getElementById('tp-prog');
+    if(progPanel){
+      const banner=document.createElement('div');
+      banner.id='comp-warn-'+id+'-'+stageId;
+      banner.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(72,160,220,.08);border:1px solid rgba(72,160,220,.25);border-radius:8px;margin:8px 16px;font-family:var(--fm)';
+      banner.innerHTML=`
+        <span style="font-size:14px">ℹ</span>
+        <div style="flex:1;font-size:11px;color:var(--text2)">${stageName} extended from bid (${bidWks}w → ${newWks}w). Fee calculator hours remain unchanged — this may create schedule headroom.</div>
+        <button onclick="document.getElementById('comp-warn-${id}-${stageId}').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>`;
+      progPanel.insertBefore(banner, progPanel.firstChild);
+    }
+  }
+}
 function setFramework(id,fw){
   const ps=getPS(id);
   const wasFramework = ps.stageFramework;
@@ -8028,7 +8103,7 @@ function buildStageGrid(id){
       };
       d.innerHTML=`<div class="rsn" style="color:${s.color}">${s.label}</div><div class="rsname">${s.name}</div>
         <div class="rswk"><input type="number" id="wks-${id}-${s.num}" value="${s.wks}" min="1" max="99"
-          oninput="updateDur('${id}')" onclick="event.stopPropagation()"/><span>wks</span></div>
+          oninput="updateDur('${id}');if(getPS('${id}').feeExists)rebuildFee('${id}');checkProgrammeCompression('${id}','${s.num}',parseInt(this.value)||1)" onclick="event.stopPropagation()"/><span>wks</span></div>
         <div class="rswk" style="margin-top:3px;opacity:.7"><input type="number" id="rev-${id}-${s.num}" value="${ps.reviewWks&&ps.reviewWks[s.num]!==undefined?ps.reviewWks[s.num]:1}" min="0" max="12"
           oninput="setReviewWks('${id}','${s.num}',this.value)" onclick="event.stopPropagation()"/><span style="font-size:9px">rev</span></div>`;
       g.appendChild(d);
@@ -8056,7 +8131,7 @@ function buildRibaGrid(id){
     };
     d.innerHTML=`<div class="rsn" style="color:${hex}">S${s.num}</div><div class="rsname">${s.name}</div>
       <div class="rswk"><input type="number" id="wks-${id}-${s.num}" value="${s.wks}" min="1" max="99"
-        oninput="RIBA[${RIBA.findIndex(r=>r.num===s.num)}].wks=parseInt(this.value)||1;updateDur('${id}');if(getPS('${id}').feeExists)rebuildFee('${id}')"
+        oninput="RIBA[${RIBA.findIndex(r=>r.num===s.num)}].wks=parseInt(this.value)||1;updateDur('${id}');if(getPS('${id}').feeExists)rebuildFee('${id}');checkProgrammeCompression('${id}','S${s.num}',parseInt(this.value)||1)"
         onclick="event.stopPropagation()"/><span>wks</span></div>
       <div class="rswk" style="margin-top:3px;opacity:.7"><input type="number" id="rev-${id}-${s.num}" value="${ps.reviewWks&&ps.reviewWks[s.num]!==undefined?ps.reviewWks[s.num]:1}" min="0" max="12"
         oninput="setReviewWks('${id}','${s.num}',this.value)" onclick="event.stopPropagation()"/><span style="font-size:9px">rev</span></div>`;
