@@ -3138,6 +3138,9 @@ function _updateBannerItems(id) {
 function cfgShowCompletionBanner(projectId) {
   const p = PROJECTS[projectId];
   if(!p) return;
+  const ps = getPS(projectId);
+  // Only show this banner if fee estimate has been run
+  if(!ps.feeExists) return;
   const gates = getTabGates(projectId);
 
   // Derive missing items from gates — single source of truth
@@ -6407,10 +6410,10 @@ function doSwitch(el,id){
 // ══ TAB ACCESS LOGIC ══════════════════════════════════════
 
 function hasRealPPACode(id){
-  // Real PPA code: starts with 'PPA' followed by digits (e.g. PPA260798)
+  // Real PPA code: starts with 'PPA' followed by 6+ digits (e.g. PPA260798)
   // Placeholder: starts with 'PPa-' (e.g. PPa-2026-001)
   const p=PROJECTS[id];if(!p)return false;
-  return /^PPA\d+$/.test((p.ref||'').trim());
+  return /^PPA\d{6,}$/.test((p.ref||'').trim());
 }
 let _refHintBusy=false;
 let _silentSave=false;
@@ -6577,8 +6580,8 @@ function renderBidSection(id){
     }
     if(!_refHintBusy) updateRefHint();
   }
-  // Refresh completion banner — always check so it dismisses when all fields complete
-  if(document.getElementById('cfg-completion-banner') || getPS(id).feeExists) {
+  // Refresh completion banner — only relevant if fee estimate was run
+  if(getPS(id).feeExists && (document.getElementById('cfg-completion-banner') || true)) {
     cfgShowCompletionBanner(id);
   }
 }
