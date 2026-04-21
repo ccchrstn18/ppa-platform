@@ -1015,14 +1015,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px
                   <div class="f"><label>Submission deadline</label><input type="date" id="ovddl" oninput="mu();_silentSave=true;saveChanges();"/></div>
                   <div class="f" style="grid-column:1/-1"><label>Sub-consultants</label>
                     <div id="ov-subconsult-wrap" style="margin-top:4px"></div></div>
-                  <div class="f"><label>Est. timeline (weeks)</label><input id="ovtline" type="number" placeholder="e.g. 72" oninput="mu()"/></div>
+                  <div class="f"><label>Est. timeline (weeks)</label><input id="ovtline" type="number" placeholder="e.g. 72" autocomplete="off" oninput="mu()"/></div>
                   <div class="f"><label>Est. fee</label>
                     <div class="fee-inp-wrap">
                       <select class="fee-inp-cur" id="ovfeecur" onchange="mu();updateFeeHint()">
                         <option value="GBP">GBP</option><option value="AED">AED</option>
                         <option value="SAR">SAR</option><option value="EUR">EUR</option><option value="USD">USD</option>
                       </select>
-                      <input class="fee-inp-num" id="ovefee" type="number" placeholder="Auto from fee calculator" oninput="mu();updateFeeHint()"/>
+                      <input class="fee-inp-num" id="ovefee" type="number" placeholder="Est. fee" autocomplete="off" oninput="mu();updateFeeHint()"/>
                     </div>
                     <div id="ovefee-hint" style="font-size:10px;font-family:var(--fm);color:var(--text3);margin-top:3px;min-height:14px"></div>
                   </div>
@@ -6584,10 +6584,16 @@ function renderBidSection(id){
   const refLabel = document.getElementById('ovref-label');
   if(refEl){
     const hasCode = hasRealPPACode(id);
-    if(r>=2 && !hasCode){
+    if(r>=3 && !hasCode){
+      // Opportunity+ and no real code yet — prompt for PPA code
       refEl.removeAttribute('readonly');
       refEl.classList.remove('ro');
       if(refLabel) refLabel.innerHTML='Reference <span style="font-size:9px;color:var(--amber);font-family:var(--fm);font-weight:400">— enter PPA project code (e.g. PPA260798) to unlock Cover page</span>';
+    } else if(r>=2 && !hasCode){
+      // Contacted/Info Pending — just an editable ref field, no PPA pressure
+      refEl.removeAttribute('readonly');
+      refEl.classList.remove('ro');
+      if(refLabel) refLabel.textContent='Reference';
     } else {
       refEl.setAttribute('readonly','');
       refEl.classList.add('ro');
@@ -6595,9 +6601,24 @@ function renderBidSection(id){
     }
     if(!_refHintBusy) updateRefHint();
   }
-  // Refresh completion banner — only relevant if fee estimate was run
-  if(getPS(id).feeExists && (document.getElementById('cfg-completion-banner') || true)) {
+  // Update Est. fee placeholder based on stage context
+  const efeeEl=document.getElementById('ovefee');
+  if(efeeEl){
+    if(r>=3 && getPS(id).feeExists && !efeeEl.value){
+      efeeEl.placeholder='Auto from fee calculator';
+    } else if(r>=3 && !getPS(id).feeExists){
+      efeeEl.placeholder='Enter estimate or run Quick Estimate';
+    } else {
+      efeeEl.placeholder='Est. fee';
+    }
+  }
+  // Refresh completion banner — only at Opportunity+ and only if fee estimate was run
+  if(getPS(id).feeExists && rank(getPipe(id).stage)>=3){
     cfgShowCompletionBanner(id);
+  } else {
+    // Remove any stale banner if project dropped back below Opportunity
+    const stale=document.getElementById('cfg-completion-banner');
+    if(stale) stale.remove();
   }
 }
 function feeHasValues(id){
@@ -6609,12 +6630,19 @@ function feeHasValues(id){
 // ══ INFO PENDING CHECK — ALL REQUIRED FIELDS ═══════════════
 function checkInfoComplete(id){
   const p=PROJECTS[id];
-  const required={
+  const r=rank(getPipe(id).stage);
+  // Basic fields required at Contacted/Information Pending to qualify
+  const basic={
     'Lead title':p.name,'Location':p.loc,'Lead source':p.src,'Lead manager':p.lmgr,
     'MW load':p.mw,'Contact name':p.client,'Contact role':p.crole,
     'Contact email':p.cemail,'Contact phone':p.cphone,
-    'Project brief':p.brief,'Est. timeline (weeks)':p.tline,'Est. fee':p.efee,
+    'Project brief':p.brief,
   };
+  // Additional fields only required at Opportunity+ (after fee estimate)
+  const opportunityExtra = r>=3 ? {
+    'Est. timeline (weeks)':p.tline,'Est. fee':p.efee,
+  } : {};
+  const required={...basic,...opportunityExtra};
   const missing=Object.entries(required).filter(([k,v])=>!v||String(v).trim()==='').map(([k])=>k);
   return {ok:missing.length===0,missing};
 }
